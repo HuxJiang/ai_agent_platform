@@ -1,26 +1,26 @@
 @echo off
 setlocal
 
-:: åŠ è½½çŽ¯å¢ƒå˜é‡
+:: ¼ÓÔØ»·¾³±äÁ¿
 call load_env.bat || exit /b 1
 
-:: ä»ŽMY_REPO_URLä¸­æå–ç”¨æˆ·åå’Œä»“åº“å
+:: ´ÓMY_REPO_URLÖÐÌáÈ¡ÓÃ»§ÃûºÍ²Ö¿âÃû
 for /f "tokens=4,5 delims=/\" %%a in ("%MY_REPO_URL%") do (
     set "USER_NAME=%%a"
     set "REPO_NAME=%%b"
 )
 
-:: ç§»é™¤REPO_NAMEä¸­çš„.gitåŽç¼€ï¼ˆå¦‚æžœæœ‰ï¼‰
+:: ÒÆ³ýREPO_NAMEÖÐµÄ.gitºó×º£¨Èç¹ûÓÐ£©
 if "!REPO_NAME:~-4!"==".git" set "REPO_NAME=!REPO_NAME:~0,-4!"
 
-:: æž„å»º PR é“¾æŽ¥
+:: ¹¹½¨ PR Á´½Ó
 set "PR_URL=%UPSTREAM_REPO_URL%/compare/%UPSTREAM_BRANCH_NAME%...%USER_NAME%:%REPO_NAME%:%MY_BRANCH_NAME%?expand=1"
 
-:: æ‰“å¼€æµè§ˆå™¨
+:: ´ò¿ªä¯ÀÀÆ÷
 start "" "%PR_URL%"
 
-echo åˆ›å»ºPR: %PR_URL%
-echo è¯·åœ¨æµè§ˆå™¨ä¸­å®ŒæˆPRçš„åˆ›å»º
+echo ´´½¨PR: %PR_URL%
+echo ÇëÔÚä¯ÀÀÆ÷ÖÐÍê³ÉPRµÄ´´½¨
 endlocal
 pause
 

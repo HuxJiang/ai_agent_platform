@@ -2,34 +2,34 @@
 
 setlocal
 
-:: 加载环境变量
+:: ���ػ�������
 call load_env.bat || exit /b 1
 
-:: 设置远程仓库名称
-set "UPSTREAM_NAME=upstream"  :: 原主仓库的远程名
-set "MY_REMOTE=origin"        :: 自己 fork 仓库的远程名
+:: ����Զ�ֿ̲�����
+set "UPSTREAM_NAME=upstream"  :: ԭ���ֿ��Զ����
+set "MY_REMOTE=origin"        :: �Լ� fork �ֿ��Զ����
 
-:: 检查是否已添加原主仓库远程
+:: ����Ƿ�������ԭ���ֿ�Զ��
 git remote | findstr /i "%UPSTREAM_NAME%" >nul
 if %errorlevel% neq 0 (
-    echo 添加 %UPSTREAM_NAME% %UPSTREAM_REPO_URL%...
+    echo ���� %UPSTREAM_NAME% %UPSTREAM_REPO_URL%...
     git remote add %UPSTREAM_NAME% %UPSTREAM_REPO_URL%
 )
 
-:: 拉取原主仓库最新代码
-echo 拉取 %UPSTREAM_NAME% 最新代码...
+:: ��ȡԭ���ֿ����´���
+echo ��ȡ %UPSTREAM_NAME% ���´���...
 git fetch %UPSTREAM_NAME%
 
-:: 合并到本地分支
-echo 合并 %UPSTREAM_NAME%/%UPSTREAM_BRANCH_NAME% 到 %MY_BRANCH_NAME%...
+:: �ϲ������ط�֧
+echo �ϲ� %UPSTREAM_NAME%/%UPSTREAM_BRANCH_NAME% �� %MY_BRANCH_NAME%...
 git checkout %MY_BRANCH_NAME%
 git merge %UPSTREAM_NAME%/%UPSTREAM_BRANCH_NAME%
 
-:: 推送到自己的远程仓库
-echo 推送代码到 %MY_REMOTE%/%MY_BRANCH_NAME%...
+:: ���͵��Լ���Զ�ֿ̲�
+echo ���ʹ��뵽 %MY_REMOTE%/%MY_BRANCH_NAME%...
 git push %MY_REMOTE% %MY_BRANCH_NAME%
 
-echo 同步上游仓库到我的远程仓库完成！
+echo ͬ�����βֿ⵽�ҵ�Զ�ֿ̲���ɣ�
 endlocal
 pause
 

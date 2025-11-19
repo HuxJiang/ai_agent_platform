@@ -2,24 +2,24 @@
 
 setlocal enabledelayedexpansion
 
-:: æ£€æŸ¥ .env æ–‡ä»¶æ˜¯å¦å­˜åœ¨
+:: ¼ì²é .env ÎÄ¼þÊÇ·ñ´æÔÚ
 if not exist ".env" (
-    echo é”™è¯¯ï¼šæœªæ‰¾åˆ° .env æ–‡ä»¶ï¼Œè¯·æ ¹æ® .env_temp åˆ›å»ºå¹¶å¡«å†™ä¿¡æ¯
+    echo ´íÎó£ºÎ´ÕÒµ½ .env ÎÄ¼þ£¬Çë¸ù¾Ý .env_temp ´´½¨²¢ÌîÐ´ÐÅÏ¢
     exit /b 1
 )
 
-:: è¯»å– .env æ–‡ä»¶å¹¶è®¾ç½®çŽ¯å¢ƒå˜é‡
+:: ¶ÁÈ¡ .env ÎÄ¼þ²¢ÉèÖÃ»·¾³±äÁ¿
 for /f "usebackq tokens=1,2 delims==" %%a in (.env) do (
     if not "%%a"=="" (
         set "%%a=%%b"
     )
 )
 
-:: éªŒè¯å¿…è¦å˜é‡æ˜¯å¦å­˜åœ¨
-if "!MY_REPO_URL!"=="" (echo é”™è¯¯ï¼š.env ä¸­æœªè®¾ç½® MY_REPO_URL & exit /b 1)
-if "!MY_BRANCH_NAME!"=="" (echo é”™è¯¯ï¼š.env ä¸­æœªè®¾ç½® MY_BRANCH_NAME & exit /b 1)
-if "!UPSTREAM_REPO_URL!"=="" (echo é”™è¯¯ï¼š.env ä¸­æœªè®¾ç½® UPSTREAM_REPO_URL & exit /b 1)
-if "!UPSTREAM_BRANCH_NAME!"=="" (echo é”™è¯¯ï¼š.env ä¸­æœªè®¾ç½® UPSTREAM_BRANCH_NAME & exit /b 1)
+:: ÑéÖ¤±ØÒª±äÁ¿ÊÇ·ñ´æÔÚ
+if "!MY_REPO_URL!"=="" (echo ´íÎó£º.env ÖÐÎ´ÉèÖÃ MY_REPO_URL & exit /b 1)
+if "!MY_BRANCH_NAME!"=="" (echo ´íÎó£º.env ÖÐÎ´ÉèÖÃ MY_BRANCH_NAME & exit /b 1)
+if "!UPSTREAM_REPO_URL!"=="" (echo ´íÎó£º.env ÖÐÎ´ÉèÖÃ UPSTREAM_REPO_URL & exit /b 1)
+if "!UPSTREAM_BRANCH_NAME!"=="" (echo ´íÎó£º.env ÖÐÎ´ÉèÖÃ UPSTREAM_BRANCH_NAME & exit /b 1)
 
 endlocal & (
     set "MY_REPO_URL=%MY_REPO_URL%"
