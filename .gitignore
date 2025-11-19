@@ -1,6 +1,11 @@
+# 列出不应提交到仓库的本地文件或敏感文件
+# 这个仓库使用 .ignore 单独列出要忽略的项（也可将内容复制到 .gitignore）
+
+.env
+node_modules/
+target/
+.idea/
+.vs/
+*.log
 # 环境变量文件（实际值）
 .env
-
-# 可根据需要添加其他临时文件
-.env.local
-.env.*.local

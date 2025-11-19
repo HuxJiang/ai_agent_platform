@@ -1,25 +1,20 @@
 @echo off
 
-setlocal
+:: Load environment variables
+call "%~dp0load_env.bat" || exit /b 1
 
-:: 加载环境变量
-call load_env.bat || exit /b 1
+:: Set remote repository
+set "REMOTE=origin"
 
-:: 拉取最新代码
-echo 拉取远程仓库 %MY_REPO_URL%:%MY_BRANCH_NAME% 最新代码...
-git pull origin %MY_BRANCH_NAME%
+:: Get commit message
+set /p "commit_msg=Enter commit message: "
 
-:: 提交操作
-git status
-set /p "COMMIT_MSG=请输入提交信息: "
+:: Commit changes
 git add .
-git commit -m "%COMMIT_MSG%"
+git commit -m "%commit_msg%"
 
-:: 推送到远程
-echo 推送到 %MY_REPO_URL%:%MY_BRANCH_NAME%...
-git push origin %MY_BRANCH_NAME%
+:: Push to remote
+git push %REMOTE% %MY_BRANCH_NAME%
 
-echo 操作完成！
-endlocal
+echo Code pushed to %REMOTE%/%MY_BRANCH_NAME%
 pause
-
