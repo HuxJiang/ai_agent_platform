@@ -33,7 +33,6 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/api/user/register",
                                 "/api/user/login",
-                                "/api/admin/login",
                                 "/doc.html",
                                 "/webjars/**",
                                 "/swagger-resources/**",
