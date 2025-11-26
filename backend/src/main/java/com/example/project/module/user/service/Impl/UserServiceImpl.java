@@ -2,6 +2,7 @@ package com.example.project.module.user.service.Impl;
 
 import com.example.project.common.exceptions.BusinessException;
 import com.example.project.common.utils.JwtUtil;
+import com.example.project.module.redis.TokenService;
 import com.example.project.module.user.dto.UserLoginDto;
 import com.example.project.module.user.dto.UserRegisterDto;
 import com.example.project.module.user.entity.User;
@@ -18,6 +19,8 @@ import jakarta.servlet.http.Cookie;
 
 import java.time.LocalDateTime;
 
+import org.slf4j.Logger;
+
 /**
  * 用户服务实现类
  */
@@ -28,7 +31,8 @@ public class UserServiceImpl implements IUserService {
     private final UserMapper userMapper;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
-    // private  final TokenService tokenService;
+    private final TokenService tokenService;
+    private final Logger logger = org.slf4j.LoggerFactory.getLogger(UserServiceImpl.class);
 
     /**
      * 用户注册功能实现
@@ -81,10 +85,11 @@ public class UserServiceImpl implements IUserService {
 
         // 生成refresh token
         String refreshToken = jwtUtil.generateRefreshToken();
+        // logger.info("Generated refresh token: " + refreshToken);
 
         // 将refresh token存Redis（7天过期）
         // JwtUtil.REFRESH_TOKEN_EXPIRE 现在以秒为单位
-        // tokenService.storeRefreshToken(user.getUsername(), refreshToken, (int)JwtUtil.REFRESH_TOKEN_EXPIRE);
+        tokenService.storeRefreshToken(user.getUsername(), refreshToken, (int)JwtUtil.REFRESH_TOKEN_EXPIRE);
 
         // 将refresh token设置为httpOnly cookie
         Cookie cookie = new Cookie("refreshToken", refreshToken);
@@ -119,13 +124,11 @@ public class UserServiceImpl implements IUserService {
     @Override
     public RefreshVO refresh(String refreshToken) {
         // 验证Redis中是否存在refreshToken
-        // String username = tokenService.getUsernameByRefreshToken(refreshToken);
-        // if (username == null) {
-        //     throw new RuntimeException("refresh_token无效或已过期");
-        // }
-        throw new BusinessException("Refresh token function is disabled (Redis removed)");
+        String username = tokenService.getUsernameByRefreshToken(refreshToken);
+        if (username == null) {
+            throw new RuntimeException("refresh_token无效或已过期");
+        }
 
-        /*
         Long userId = userMapper.findByUsername(username).getId();
 
         // 生成新的access_token
@@ -154,6 +157,5 @@ public class UserServiceImpl implements IUserService {
                 .access_token(newAccessToken)
                 .refresh_token(newRefreshToken)
                 .build();
-        */
     }
 }

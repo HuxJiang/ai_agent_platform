@@ -73,21 +73,21 @@ services:
       JAVA_OPTS: ${JAVA_OPTS:--Xms512m -Xmx1g}
 
       # Redis 配置（Docker 部署时指向 redis 服务）
-      # REDIS_HOST: ${REDIS_HOST}
-      # REDIS_PORT: ${REDIS_PORT}
-      # REDIS_PASSWORD: ${REDIS_PASSWORD}
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT}
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
 
       # 时区
       TZ: ${TZ:-Asia/Shanghai}
-    # volumes:
-    #   - redis_data:/app/logs
+    volumes:
+      - redis_data:/app/logs
     networks:
       - app-network
     depends_on:
-      mysql:
-        condition: service_healthy
-      # - mysql
-      # - redis
+      - mysql
+      - redis
+      # mysql:
+        # condition: service_healthy
 
 
   # web-frontend:
@@ -108,27 +108,27 @@ services:
   #   depends_on:
   #     - backend  # ⭐ 等待后端服务启动（不要求健康检查）
 
-  # redis:
-  #   image: redis:7-alpine
-  #   container_name: ${PROJECT_NAME:-ai-agent-platform}-redis
-  #   command: ["redis-server", "--appendonly", "yes"]
-  #   environment:
-  #     SPRING_REDIS_HOST: ${SPRING_REDIS_HOST:-redis}
-  #     SPRING_REDIS_PORT: ${SPRING_REDIS_PORT:-6379}
-  #     SPRING_REDIS_PASSWORD: ${SPRING_REDIS_PASSWORD:-}
-  #   ports:
-  #     - "${SPRING_REDIS_PORT:-6379}:6379"
-  #   volumes:
-  #     - redis_data:/data
-  #   networks:
-  #     - app-network
-  #   restart: unless-stopped
-  #   healthcheck:
-  #     test: ["CMD", "sh", "-c", "if [ -z \"${SPRING_REDIS_PASSWORD:-}\" ]; then redis-cli ping; else redis-cli -a \"${SPRING_REDIS_PASSWORD:-}\" ping; fi"]
-  #     interval: 10s
-  #     timeout: 5s
-  #     retries: 5
-  #     start_period: 10s
+  redis:
+    image: redis:7-alpine
+    container_name: ${PROJECT_NAME:-ai-agent-platform}-redis
+    command: ["redis-server", "--appendonly", "yes"]
+    environment:
+      SPRING_REDIS_HOST: ${SPRING_REDIS_HOST:-redis}
+      SPRING_REDIS_PORT: ${SPRING_REDIS_PORT:-6379}
+      SPRING_REDIS_PASSWORD: ${SPRING_REDIS_PASSWORD:-}
+    ports:
+      - "${SPRING_REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - app-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "sh", "-c", "if [ -z \"${SPRING_REDIS_PASSWORD:-}\" ]; then redis-cli ping; else redis-cli -a \"${SPRING_REDIS_PASSWORD:-}\" ping; fi"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
 
   frontend:
@@ -151,6 +151,7 @@ services:
 
 volumes:
   backend_mysql_data:
+  redis_data:
 
 networks:
   app-network:
