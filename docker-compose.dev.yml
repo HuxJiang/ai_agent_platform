@@ -28,6 +28,29 @@ services:
     networks:
       - app-dev-network
 
+  rag-service:
+    build: 
+      context: ./rag_service
+      dockerfile: Dockerfile
+    container_name: rag-service
+    ports:
+      - "8000:8000"
+    volumes:
+      - rag_services/data:/app/data
+      - rag_services/model:/app/model:ro
+    environment:
+        - RAG_MODEL_NAME=/app/model
+        - RAG_ON_DOCKER=Y
+        - RAG_DB_HOST=mysql
+        - RAG_DB_PORT=3306
+        - RAG_DB_USER=demo_user
+        - RAG_DB_PASS=demo_pass_123
+        - RAG_DB_NAME=demo_db
+    depends_on:
+      - mysql
+    networks:
+      - app-dev-network
+
   backend:
     build:
       context: ./backend
