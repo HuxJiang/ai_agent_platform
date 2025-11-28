@@ -136,4 +136,20 @@ CREATE TABLE IF NOT EXISTS `message` (
   CONSTRAINT `fk_message_conversation` FOREIGN KEY (`conversation_id`) REFERENCES `conversation`(`id`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='消息表';
 
+CREATE TABLE IF NOT EXISTS knowledge (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    title VARCHAR(255) NOT NULL COMMENT '知识标题',
+    user VARCHAR(255) NOT NULL COMMENT '用户',
+    content LONGTEXT NOT NULL COMMENT '知识内容',
+    category VARCHAR(100) DEFAULT NULL COMMENT '分类',
+    keywords VARCHAR(500) DEFAULT NULL COMMENT '关键词',
+    source VARCHAR(200) DEFAULT NULL COMMENT '来源',
+    is_deleted TINYINT DEFAULT 0 COMMENT '是否删除',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    INDEX idx_category (category),
+    INDEX idx_is_deleted (is_deleted),
+    INDEX idx_created_at (created_at),
+    FULLTEXT INDEX ft_title_content (title, content) COMMENT '全文索引'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='知识库表';
 
