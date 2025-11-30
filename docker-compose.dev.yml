@@ -30,14 +30,13 @@ services:
 
   rag-service:
     build: 
-      context: ./rag_service
+      context: ./rag-service
       dockerfile: Dockerfile
     container_name: rag-service
     ports:
       - "8000:8000"
     volumes:
-      - rag_services/data:/app/data
-      - rag_services/model:/app/model:ro
+      - ./rag-service:/app
     environment:
         - RAG_MODEL_NAME=/app/model
         - RAG_ON_DOCKER=Y
