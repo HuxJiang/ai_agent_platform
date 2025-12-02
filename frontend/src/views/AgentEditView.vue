@@ -175,6 +175,66 @@
               <p class="form-hint">公开的智能体可以被其他用户查看和使用</p>
             </div>
 
+            <!-- 插件关联管理 -->
+            <div class="form-group plugin-associations-section">
+              <label class="form-label">插件关联</label>
+              <div class="plugin-associations">
+                <div class="associations-header">
+                  <button
+                    type="button"
+                    class="btn-add-plugin"
+                    @click="showPluginSelectModal = true"
+                  >
+                    + 添加插件
+                  </button>
+                </div>
+                
+                <div v-if="pluginAssociations.length === 0" class="empty-associations">
+                  <p>暂无关联的插件</p>
+                </div>
+                
+                <div v-else class="associations-list">
+                  <div
+                    v-for="assoc in pluginAssociations"
+                    :key="assoc.id"
+                    class="association-item"
+                  >
+                    <div class="association-info">
+                      <span class="plugin-name">{{ assoc.plugin_name }}</span>
+                      <div class="association-controls">
+                        <label class="toggle-label">
+                          <input
+                            type="checkbox"
+                            :checked="assoc.is_enabled === 1"
+                            @change="handleTogglePluginAssociation(assoc)"
+                          />
+                          启用
+                        </label>
+                        <div class="priority-input">
+                          <label>优先级:</label>
+                          <input
+                            type="number"
+                            :value="assoc.priority"
+                            @blur="handleUpdatePluginPriority(assoc, $event)"
+                            min="0"
+                            class="priority-field"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      class="btn-remove-association"
+                      @click="handleRemovePluginAssociation(assoc)"
+                      title="移除关联"
+                    >
+                      ×
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <!-- 按钮组 -->
             <div class="form-actions">
               <button
@@ -203,6 +263,84 @@
         </div>
       </main>
     </div>
+
+    <!-- 插件选择弹窗 -->
+    <div v-if="showPluginSelectModal" class="modal-overlay" @click.self="showPluginSelectModal = false">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>选择插件</h3>
+          <button class="modal-close" @click="showPluginSelectModal = false">×</button>
+        </div>
+        <div class="modal-body">
+          <div v-if="loadingPlugins" class="loading-state">
+            <p>加载中...</p>
+          </div>
+          <div v-else-if="availablePlugins.length === 0" class="empty-state">
+            <p>没有可用的插件</p>
+          </div>
+          <div v-else class="plugin-select-list">
+            <div
+              v-for="plugin in availablePlugins"
+              :key="plugin.id"
+              class="plugin-select-item"
+              :class="{ disabled: isPluginAssociated(plugin.id) }"
+              @click="!isPluginAssociated(plugin.id) && selectPluginForAssociation(plugin)"
+            >
+              <div class="plugin-select-info">
+                <span class="plugin-select-name">{{ plugin.name }}</span>
+                <span v-if="isPluginAssociated(plugin.id)" class="already-associated">已关联</span>
+              </div>
+              <p class="plugin-select-description">{{ plugin.description || '无描述' }}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 关联配置弹窗 -->
+    <div v-if="showPluginConfigModal" class="modal-overlay" @click.self="showPluginConfigModal = false">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>配置关联</h3>
+          <button class="modal-close" @click="showPluginConfigModal = false">×</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label>插件:</label>
+            <span class="config-value">{{ selectedPluginForAssociation?.name }}</span>
+          </div>
+          <div class="form-group">
+            <label class="checkbox-label">
+              <input
+                type="checkbox"
+                v-model="pluginAssociationConfig.isEnabled"
+              />
+              启用
+            </label>
+          </div>
+          <div class="form-group">
+            <label for="pluginPriority">优先级:</label>
+            <input
+              type="number"
+              id="pluginPriority"
+              v-model.number="pluginAssociationConfig.priority"
+              min="0"
+              class="form-input"
+            />
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-cancel" @click="showPluginConfigModal = false">取消</button>
+          <button
+            class="btn-confirm"
+            @click="handleCreatePluginAssociation"
+            :disabled="creatingPluginAssociation"
+          >
+            {{ creatingPluginAssociation ? '创建中...' : '确认' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -217,6 +355,17 @@ export default {
       agentId: null,
       loading: false,
       errorMessage: '',
+      pluginAssociations: [],
+      availablePlugins: [],
+      loadingPlugins: false,
+      showPluginSelectModal: false,
+      showPluginConfigModal: false,
+      selectedPluginForAssociation: null,
+      pluginAssociationConfig: {
+        isEnabled: true,
+        priority: 0
+      },
+      creatingPluginAssociation: false,
       formData: {
         name: '',
         description: '',
@@ -280,6 +429,11 @@ export default {
       }
     } else {
       this.errorMessage = '缺少智能体数据，请返回主页重新选择'
+    }
+    
+    // 加载插件关联列表
+    if (this.agentId) {
+      this.loadPluginAssociations()
     }
   },
   methods: {
@@ -364,6 +518,133 @@ export default {
       // 确认是否取消
       if (confirm('确定要取消更新吗？未保存的修改将丢失。')) {
         this.$router.push('/home')
+      }
+    },
+    
+    // 加载插件关联列表
+    async loadPluginAssociations() {
+      if (!this.agentId) return
+      
+      try {
+        const response = await api.plugin.getAgentPlugins(this.agentId)
+        this.pluginAssociations = response.associations || []
+      } catch (error) {
+        console.error('获取插件关联列表失败:', error)
+        this.pluginAssociations = []
+      }
+    },
+    
+    // 加载可用插件列表
+    async loadAvailablePlugins() {
+      this.loadingPlugins = true
+      try {
+        const response = await api.plugin.getPluginList({ page: 1, limit: 100 })
+        this.availablePlugins = response.plugins || []
+      } catch (error) {
+        console.error('获取插件列表失败:', error)
+        this.availablePlugins = []
+      } finally {
+        this.loadingPlugins = false
+      }
+    },
+    
+    // 检查插件是否已关联
+    isPluginAssociated(pluginId) {
+      return this.pluginAssociations.some(assoc => assoc.plugin_id === pluginId)
+    },
+    
+    // 选择插件进行关联
+    selectPluginForAssociation(plugin) {
+      this.selectedPluginForAssociation = plugin
+      this.pluginAssociationConfig = {
+        isEnabled: true,
+        priority: 0
+      }
+      this.showPluginSelectModal = false
+      this.showPluginConfigModal = true
+    },
+    
+    // 创建插件关联
+    async handleCreatePluginAssociation() {
+      if (!this.agentId || !this.selectedPluginForAssociation) {
+        return
+      }
+      
+      this.creatingPluginAssociation = true
+      try {
+        await api.plugin.createAgentPlugin(
+          this.agentId,
+          this.selectedPluginForAssociation.id,
+          this.pluginAssociationConfig.isEnabled,
+          this.pluginAssociationConfig.priority
+        )
+        
+        this.showPluginConfigModal = false
+        this.selectedPluginForAssociation = null
+        await this.loadPluginAssociations()
+      } catch (error) {
+        console.error('创建关联失败:', error)
+        alert('创建关联失败，请稍后重试')
+      } finally {
+        this.creatingPluginAssociation = false
+      }
+    },
+    
+    // 切换插件关联启用状态
+    async handleTogglePluginAssociation(assoc) {
+      try {
+        await api.plugin.updateAgentPlugin(
+          this.agentId,
+          assoc.id,
+          !assoc.is_enabled,
+          assoc.priority
+        )
+        await this.loadPluginAssociations()
+      } catch (error) {
+        console.error('更新关联失败:', error)
+        alert('更新关联失败，请稍后重试')
+      }
+    },
+    
+    // 更新插件优先级
+    async handleUpdatePluginPriority(assoc, event) {
+      const newPriority = parseInt(event.target.value) || 0
+      if (newPriority === assoc.priority) {
+        return
+      }
+      
+      try {
+        await api.plugin.updateAgentPlugin(
+          this.agentId,
+          assoc.id,
+          assoc.is_enabled === 1,
+          newPriority
+        )
+        await this.loadPluginAssociations()
+      } catch (error) {
+        console.error('更新优先级失败:', error)
+        alert('更新优先级失败，请稍后重试')
+        event.target.value = assoc.priority
+      }
+    },
+    
+    // 移除插件关联
+    async handleRemovePluginAssociation(assoc) {
+      if (confirm(`确定要移除与"${assoc.plugin_name}"的关联吗？`)) {
+        try {
+          await api.plugin.deleteAgentPlugin(this.agentId, assoc.id)
+          await this.loadPluginAssociations()
+        } catch (error) {
+          console.error('删除关联失败:', error)
+          alert('删除关联失败，请稍后重试')
+        }
+      }
+    }
+  },
+  watch: {
+    showPluginSelectModal(newVal) {
+      if (newVal) {
+        this.loadAvailablePlugins()
       }
     }
   }
@@ -663,6 +944,294 @@ export default {
   border-radius: 6px;
   font-size: 14px;
   margin-top: 8px;
+}
+
+/* 插件关联样式 */
+.plugin-associations-section {
+  border-top: 1px solid #e2e8f0;
+  padding-top: 24px;
+  margin-top: 24px;
+}
+
+.plugin-associations {
+  margin-top: 12px;
+}
+
+.associations-header {
+  margin-bottom: 16px;
+}
+
+.btn-add-plugin {
+  padding: 8px 16px;
+  background-color: #667eea;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.btn-add-plugin:hover {
+  background-color: #5a67d8;
+}
+
+.empty-associations {
+  text-align: center;
+  padding: 20px;
+  color: #718096;
+  font-size: 14px;
+}
+
+.associations-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.association-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background-color: #f8fafc;
+}
+
+.association-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.plugin-name {
+  font-weight: 500;
+  color: #2d3748;
+  font-size: 14px;
+}
+
+.association-controls {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  color: #4a5568;
+  cursor: pointer;
+}
+
+.priority-input {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.priority-input label {
+  color: #4a5568;
+}
+
+.priority-field {
+  width: 60px;
+  padding: 4px 8px;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.btn-remove-association {
+  width: 24px;
+  height: 24px;
+  border: none;
+  background-color: transparent;
+  color: #718096;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.btn-remove-association:hover {
+  background-color: #fed7d7;
+  color: #c53030;
+}
+
+/* 弹窗样式 */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background-color: white;
+  border-radius: 12px;
+  width: 100%;
+  max-width: 500px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #2d3748;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  font-size: 24px;
+  color: #a0aec0;
+  cursor: pointer;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.2s;
+}
+
+.modal-close:hover {
+  background-color: #f7fafc;
+  color: #4a5568;
+}
+
+.modal-body {
+  padding: 24px;
+}
+
+.loading-state,
+.empty-state {
+  text-align: center;
+  padding: 40px;
+  color: #718096;
+}
+
+.plugin-select-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.plugin-select-item {
+  padding: 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.plugin-select-item:hover:not(.disabled) {
+  border-color: #667eea;
+  background-color: #f7fafc;
+}
+
+.plugin-select-item.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.plugin-select-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.plugin-select-name {
+  font-weight: 500;
+  color: #2d3748;
+  font-size: 14px;
+}
+
+.already-associated {
+  font-size: 12px;
+  color: #718096;
+}
+
+.plugin-select-description {
+  font-size: 12px;
+  color: #718096;
+  margin: 0;
+}
+
+.config-value {
+  font-weight: 500;
+  color: #2d3748;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 20px 24px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.btn-cancel,
+.btn-confirm {
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s;
+}
+
+.btn-cancel {
+  background-color: #f7fafc;
+  color: #4a5568;
+  border: 1px solid #e2e8f0;
+}
+
+.btn-cancel:hover {
+  background-color: #edf2f7;
+}
+
+.btn-confirm {
+  background-color: #667eea;
+  color: white;
+}
+
+.btn-confirm:hover:not(:disabled) {
+  background-color: #5a67d8;
+}
+
+.btn-confirm:disabled {
+  background-color: #a0aec0;
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 
 /* 响应式设计 */
