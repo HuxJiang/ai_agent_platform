@@ -1,0 +1,28 @@
+server:
+  port: 8080
+
+spring:
+  jackson:
+    date-format: yyyy-MM-dd HH:mm:ss
+    locale: zh_CN
+    time-zone: GMT+8
+    default-property-inclusion: NON_NULL
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/ai_agent_db}
+    username: ${SPRING_DATASOURCE_USERNAME:root}
+    password: ${SPRING_DATASOURCE_PASSWORD:Root@2025!Test}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  # redis:
+  #   host: ${SPRING_REDIS_HOST:redis}
+  #   port: ${SPRING_REDIS_PORT:6379}
+  #   password: ${SPRING_REDIS_PASSWORD:}
+  #   timeout: 2000
+mybatis-plus:
+  mapper-locations: classpath:mapper/*.xml
+  type-aliases-package: com.example.project.module.*.entity
+
+jwt:
+  secret: ${JWT_SECRET:bXlTdXBlclNlY3JldEtleTEyMzQ1Njc4OTBhYmNkZWYxMjM0NTY3ODkwYWJjZGVm}
+  expiration: 86400000
+  header: Authorization
+  prefix: Bearer

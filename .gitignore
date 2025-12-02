@@ -1,0 +1,14 @@
+# 列出不应提交到仓库的本地文件或敏感文件
+# 这个仓库使用 .ignore 单独列出要忽略的项（也可将内容复制到 .gitignore）
+
+.env
+dist/
+node_modules/
+target/
+.idea/
+.vs/
+*.log
+# 环境变量文件（实际值）
+.env
+rag-service/model/
+rag-service/data/kb
