@@ -1,0 +1,84 @@
+name: ai-agent-platform-dev
+services:
+
+
+
+  mysql:
+    image: mysql:8.0
+    container_name: dev-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-chenhao20030210}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-ai_agent_db}
+      MYSQL_USER: ${MYSQL_USER:-test_user}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-12345678}
+    ports:
+      - "${MYSQL_PORT:-3306}:3306"
+    command: [
+      "--default-authentication-plugin=mysql_native_password",
+      "--character-set-server=utf8mb4",
+      "--collation-server=utf8mb4_0900_ai_ci",
+      "--skip-name-resolve",
+      "--explicit_defaults_for_timestamp"
+    ]
+    volumes:
+      - backend_mysql_data:/var/lib/mysql
+      - ../database/init:/docker-entrypoint-initdb.d
+    networks:
+      - shared-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: dev-phpmyadmin
+    environment:
+      PMA_HOST: mysql
+      PMA_PORT: 3306
+      PMA_USER: ${MYSQL_USER:-test_user}
+      PMA_PASSWORD: ${MYSQL_PASSWORD:-12345678}
+    ports:
+      - "${PMA_PORT:-8081}:80"
+    depends_on:
+      - mysql
+    networks:
+      - shared-network
+    restart: unless-stopped
+
+  backend-dev:
+
+    image: maven:3.9.9-eclipse-temurin-21  # 内置 JDK 21，支持编译+运行
+    container_name: backend-dev
+    ports:
+      - "8080:8080"           # 应用端口（Spring Boot 默认 8080，按需修改）
+    volumes:
+      - ./:/app
+      - maven-repo:/root/.m2
+    environment:
+      SPRING_PROFILES_ACTIVE: dev  # 指定开发环境（按需修改）
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL:-jdbc:mysql://mysql:3306/ai_agent_db?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&characterEncoding=UTF-8}
+      SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME:-test_user}
+      SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD:-12345678}
+    working_dir: /app  # 容器内工作目录（默认进入 /app，对应本地项目根目录）
+    stdin_open: true
+    tty: true
+    # 容器启动命令：安装依赖 → 启动应用（热部署）
+    command: >
+      sh -c "
+        mvn clean dependency:resolve &&
+        # 启动 Spring Boot 应用（用 spring-boot:run 开启热部署，修改代码自动重启）
+        mvn spring-boot:run
+      "
+    networks:
+      - shared-network  # 加入与 db 相同的共享网络
+
+volumes:
+  maven-repo:  # 命名卷，缓存 Maven 依赖
+  backend_mysql_data:
+networks:
+  shared-network:
+    driver: bridge

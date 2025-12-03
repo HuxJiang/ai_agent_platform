@@ -49,13 +49,7 @@ sudo systemctl start docker //linux
 部署启动指令：
 
 ```
-docker-compose -f docker-compose.prod.yml -p ai-platform up -d --build
-```
-
-开发环境配置指令：
-
-```
-docker-compose -f docker-compose.dev.yml -p ai-platform-dev up -d
+docker-compose up -d --build
 ```
 
 ## 🔧贡献代码

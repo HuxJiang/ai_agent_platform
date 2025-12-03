@@ -1,0 +1,37 @@
+
+include:
+  - ../backend/docker-compose.yml
+name: ai-agent-platform-dev
+services:
+  plugin-dev:
+    # 直接使用官方 Node 镜像（无需自定义构建）
+    image: node:22-alpine
+    container_name: plugin-dev
+    ports:
+      - "3000:3000"
+    volumes:
+      # 1. 本地项目根目录 → 容器内 /app（源码实时同步）
+      - ./:/app
+      # 2. 容器内独立 node_modules（避免本地与容器依赖冲突，自动创建匿名卷）
+      - /app/node_modules
+      # 可选：挂载 npm 缓存目录（加速依赖安装，避免重复下载）
+      - npm-cache:/root/.npm
+    environment:
+      - NODE_ENV=development
+      - CHOKIDAR_USEPOLLING=true  # 解决 Windows/macOS 热更新不生效问题
+    working_dir: /app  # 容器内工作目录（进入容器后默认在 /app，对应本地项目根目录）
+    stdin_open: true   # 兼容 React 等项目的终端交互需求
+    tty: true          # 保持终端连接，查看日志输出
+    # 容器启动命令：先安装依赖（若未安装），再启动开发服务器（开启调试模式）
+    command: >
+      sh -c "npm install && npm run dev"
+
+    depends_on:
+      - backend-dev  # 等待后端服务启动（不要求健康检查）
+    networks:
+      - shared-network  # 加入与 db 相同的共享网络
+
+
+# 与 services 同级
+volumes:
+  npm-cache:  # 命名卷，持久化 npm 缓存

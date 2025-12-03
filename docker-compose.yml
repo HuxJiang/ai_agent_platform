@@ -3,10 +3,10 @@ services:
     image: mysql:8.0
     container_name: ${PROJECT_NAME:-ai-agent-platform}-mysql
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      MYSQL_DATABASE: ${MYSQL_DATABASE}
-      MYSQL_USER: ${MYSQL_USER}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-chenhao20030210}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-ai_agent_db}
+      MYSQL_USER: ${MYSQL_USER:-test_user}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-12345678}
     ports:
       - "${MYSQL_PORT:-3306}:3306"
     command: [
@@ -18,7 +18,7 @@ services:
     ]
     volumes:
       - backend_mysql_data:/var/lib/mysql
-      - ./backend/database/init:/docker-entrypoint-initdb.d
+      - ./database/init:/docker-entrypoint-initdb.d
     networks:
       - app-network
     restart: unless-stopped
@@ -35,8 +35,8 @@ services:
     environment:
       PMA_HOST: mysql
       PMA_PORT: 3306
-      PMA_USER: ${MYSQL_USER}
-      PMA_PASSWORD: ${MYSQL_PASSWORD}
+      PMA_USER: ${MYSQL_USER:-test_user}
+      PMA_PASSWORD: ${MYSQL_PASSWORD:-12345678}
     ports:
       - "${PMA_PORT:-8081}:80"
     depends_on:
@@ -58,23 +58,16 @@ services:
       # 激活生产环境配置
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
 
-      # 数据库配置（连接 mysql 服务）
-      DATASOURCE_URL: ${SPRING_DATASOURCE_URL}
-      DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME}
-      DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD}
-
-      # 或者使用环境变量（推荐）
-      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL}
-      SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME}
-      SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD}
-
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL:-jdbc:mysql://mysql:3306/ai_agent_db?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&characterEncoding=UTF-8}
+      SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME:-test_user}
+      SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD:-12345678}
+      SPRING_REDIS_HOST: ${SPRING_REDIS_HOST:-redis}
+      SPRING_REDIS_PORT: ${SPRING_REDIS_PORT:-6379}
+      SPRING_REDIS_PASSWORD: ${SPRING_REDIS_PASSWORD:-12345678}
       # Java 运行参数
       JAVA_OPTS: ${JAVA_OPTS:--Xms512m -Xmx1g}
 
-      # Redis 配置（Docker 部署时指向 redis 服务）
-      # REDIS_HOST: ${REDIS_HOST}
-      # REDIS_PORT: ${REDIS_PORT}
-      # REDIS_PASSWORD: ${REDIS_PASSWORD}
+
 
       # 时区
       TZ: ${TZ:-Asia/Shanghai}
@@ -86,33 +79,38 @@ services:
       - mysql
       - plugin-server
 
-
-  # web-frontend:
-  #   container_name: ${PROJECT_NAME:-ai-agent-platform}-frontend
-  #   build:
-  #     context: ./frontend
-  #     dockerfile: Dockerfile
-  #     args:
-  #       NODE_ENV: ${NODE_ENV:-production}
-  #   image: ${PROJECT_NAME:-ai-agent-platform}-frontend:latest
-  #   restart: unless-stopped
-  #   ports:
-  #     - "${WEB_ADMIN_PORT:-80}:80"
-  #   environment:
-  #     TZ: ${TZ:-Asia/Shanghai}
-  #   networks:
-  #     - app-network
-  #   depends_on:
-  #     - backend  # ⭐ 等待后端服务启动（不要求健康检查）
+  rag-service:
+    build:
+      context: ./rag-service
+      dockerfile: Dockerfile
+    container_name: rag-service
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./rag-service:/app
+    environment:
+        RAG_MODEL_NAME: /app/model
+        RAG_ON_DOCKER: Y
+        RAG_DB_HOST: ${MYSQL_DATABASE_HOST:-mysql}
+        RAG_DB_PORT: ${MYSQL_DATABASE_PORT:-3306}
+        RAG_DB_USER: ${MYSQL_USER:-test_user}
+        RAG_DB_PASS: ${MYSQL_PASSWORD:-12345678}
+        RAG_DB_NAME: ${MYSQL_DATABASE:-ai_agent_db}
+    depends_on:
+      - mysql
+    networks:
+      - app-network
 
   # redis:
   #   image: redis:7-alpine
   #   container_name: ${PROJECT_NAME:-ai-agent-platform}-redis
   #   command: ["redis-server", "--appendonly", "yes"]
   #   environment:
-  #     SPRING_REDIS_HOST: ${SPRING_REDIS_HOST:-redis}
-  #     SPRING_REDIS_PORT: ${SPRING_REDIS_PORT:-6379}
-  #     SPRING_REDIS_PASSWORD: ${SPRING_REDIS_PASSWORD:-}
+  # Redis 配置（Docker 部署时指向 redis 服务）
+      # REDIS_HOST: ${REDIS_HOST:-redis}
+      # REDIS_PORT: ${REDIS_PORT:-6379}
+      # REDIS_PASSWORD: ${REDIS_PASSWORD:-12345678}
+
   #   ports:
   #     - "${SPRING_REDIS_PORT:-6379}:6379"
   #   volumes:
