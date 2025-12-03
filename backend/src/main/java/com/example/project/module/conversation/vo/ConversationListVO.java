@@ -17,6 +17,6 @@ public class ConversationListVO {
         private int limit;
         private long total;
         private int pages;
-        private long agent_id;
+        private Long agent_id;
     }
 }

@@ -1,6 +1,5 @@
 package com.example.project.module.conversation.service.Impl;
 
-import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.example.project.common.exceptions.BusinessException;
 import com.example.project.module.conversation.dto.CreateConversationDto;
@@ -71,10 +70,11 @@ public class ConversationServiceImpl implements IConversationService {
     @Override
     public ConversationListVO getConversationList(int page, int limit, Long agentId) {
         Page<Conversation> pageParam = new Page<>(page, limit);
-        QueryWrapper<Conversation> query = new QueryWrapper<>();
+
+        com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<Conversation> query = new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<>();
 
         if (agentId != null) {
-            query.eq("agentId", agentId);
+            query.eq(Conversation::getAgentId, agentId);
         }
 
         Page<Conversation> resultPage = conversationMapper.selectPage(pageParam, query);
@@ -92,6 +92,7 @@ public class ConversationServiceImpl implements IConversationService {
         pagination.setLimit((int) resultPage.getSize());
         pagination.setTotal(resultPage.getTotal());
         pagination.setPages((int) resultPage.getPages());
+        pagination.setAgent_id(agentId);
 
         // 构建最终返回VO
         ConversationListVO listVO = new ConversationListVO();

@@ -10,7 +10,7 @@ spring:
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/ai_agent_db}
     username: ${SPRING_DATASOURCE_USERNAME:root}
-    password: ${SPRING_DATASOURCE_PASSWORD:Root@2025!Test}
+    password: ${SPRING_DATASOURCE_PASSWORD:chenhao20030210}
     driver-class-name: com.mysql.cj.jdbc.Driver
   # redis:
   #   host: ${SPRING_REDIS_HOST:redis}
