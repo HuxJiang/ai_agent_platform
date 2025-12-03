@@ -44,6 +44,8 @@ public class SecurityConfig {
                                 "/api/user/refresh",
                                 "/api/test/ping",
                                 "/doc.html",
+                                "/swagger-ui.html",
+                                "/swagger-ui/**",
                                 "/webjars/**",
                                 "/swagger-resources/**",
                                 "/v3/api-docs/**",
