@@ -23,10 +23,8 @@ services:
       - QDRANT_HOST=qdrant
       - QDRANT_PORT=6333
     depends_on:
-      rag-mysql:
-        condition: service_healthy
-      qdrant:
-        condition: service_started
+      - rag-mysql
+      - qdrant
     networks:
       - app-network
     restart: unless-stopped
@@ -76,7 +74,7 @@ services:
     ports:
       - "8081:80"
     depends_on:
-      rag-mysql
+      - rag-mysql
     networks:
       - app-network  
     restart: unless-stopped
