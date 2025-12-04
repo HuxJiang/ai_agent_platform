@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+qdrant-client
+dashscope
+python-dotenv
+pydantic
+pymysql
+numpy
+tqdm
