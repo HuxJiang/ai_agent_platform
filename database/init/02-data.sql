@@ -7,13 +7,18 @@ INSERT INTO `user` (`id`, `username`, `password`, `nickname`, `email`, `phone`, 
 (3, 'testuser02', '$2a$10$OWVx3PwZM0vu0lkJjEHPZuLqBJAY7jaDRqSaWNhtLiRI//LKP3vyu', 'testuser02', '3877612901@qq.com', NULL, 'https://example.com/avatar.jpg', NULL, NULL, 1, '2025-11-23 15:38:50', '2025-11-20 13:56:00', '2025-11-23 15:38:50', 0);
 
 -- 插入测试Agent
-INSERT INTO `agent` (`id`, `name`, `description`, `avatar`, `category`, `model`, `system_prompt`, `temperature`, `max_tokens`, `is_public`, `creator_id`, `created_at`, `updated_at`) VALUES
-(1, 'test_agent1', 'This is test_agent1\'s description', 'https://example.com/avatar.jpg', 'test_agent1_category', 'test_agent1_model', 'This is test_agent1\'s system prompt', 0.80, 2048, 1, 2, '2025-11-20 15:45:52', '2025-11-20 18:30:59'),
-(2, 'test_agent2', 'This is test_agent2\'s description', 'https://example.com/avatar.jpg', 'test_agent2_category', 'test_agent2_model', 'This is test_agent2\'s system prompt', 0.75, 4096, 1, 2, '2025-11-20 15:48:03', '2025-11-20 15:48:03');
+INSERT INTO `agent` (`id`, `name`, `description`, `avatar`, `category`, `url`, `connect_type`, `is_tested`, `is_public`, `created_at`, `updated_at`) VALUES
+(1, 'test_agent1', 'This is test_agent1\'s description', 'https://example.com/avatar.jpg', 'test_agent1_category', 'https://agent.example.com/a1', 'stream-http', 1, 1, '2025-11-20 15:45:52', '2025-11-20 18:30:59'),
+(2, 'test_agent2', 'This is test_agent2\'s description', 'https://example.com/avatar.jpg', 'test_agent2_category', 'https://agent.example.com/a2', 'sse', 0, 1, '2025-11-20 15:48:03', '2025-11-20 15:48:03');
 
-INSERT INTO `conversation` (`id`, `creator_id`, `title`, `metadata`, `provider`, `model`, `temperature`, `max_tokens`, `created_at`, `updated_at`) VALUES
-(1, 2, 'This is test title for agent with id 1.', '{"source": "web", "user_agent": "Mozilla/5.0..."}', 'gpt', 'gpt-4o-mini', 0.80, 1024, '2025-11-21 14:14:49', '2025-11-21 14:14:49'),
-(2, 3, 'This is test title for agent with id 2.', '{"source": "web", "user_agent": "Mozilla/5.0..."}', 'gpt', 'gpt-4o-mini', 0.70, 2048, '2025-11-21 16:03:33', '2025-11-21 16:03:33');
+INSERT INTO `user_agent` (`id`, `user_id`, `agent_id`, `is_owner`, `created_at`, `updated_at`) VALUES
+(1, 2, 1, 1, '2025-11-20 15:45:52', '2025-11-20 18:30:59'),
+(2, 2, 2, 1, '2025-11-20 15:48:03', '2025-11-20 15:48:03'),
+(3, 3, 2, 0, '2025-11-23 15:38:50', '2025-11-23 15:38:50');
+
+INSERT INTO `conversation` (`id`, `creator_id`, `main_agent_id`, `title`, `metadata`, `provider`, `model`, `temperature`, `max_tokens`, `created_at`, `updated_at`) VALUES
+(1, 2, 1, 'This is test title for agent with id 1.', '{"source": "web", "user_agent": "Mozilla/5.0..."}', 'gpt', 'gpt-4o-mini', 0.80, 1024, '2025-11-21 14:14:49', '2025-11-21 14:14:49'),
+(2, 3, 2, 'This is test title for agent with id 2.', '{"source": "web", "user_agent": "Mozilla/5.0..."}', 'gpt', 'gpt-4o-mini', 0.70, 2048, '2025-11-21 16:03:33', '2025-11-21 16:03:33');
 
 INSERT INTO `agent_conversation` (`id`, `agent_id`, `conversation_id`, `created_at`) VALUES
 (1, 1, 1, '2025-11-21 14:14:49'),
