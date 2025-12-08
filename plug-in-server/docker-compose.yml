@@ -1,4 +1,4 @@
-
+# 容器环境下测试使用
 include:
   - ../backend/docker-compose.yml
 name: ai-agent-platform-dev
@@ -19,6 +19,12 @@ services:
     environment:
       - NODE_ENV=development
       - CHOKIDAR_USEPOLLING=true  # 解决 Windows/macOS 热更新不生效问题
+      - MYSQL_HOST=mysql-dev
+      - MYSQL_PORT=3306
+      - MYSQL_USER=test_user
+      - MYSQL_PASSWORD=12345678
+      - MYSQL_DATABASE=ai_agent_db
+
     working_dir: /app  # 容器内工作目录（进入容器后默认在 /app，对应本地项目根目录）
     stdin_open: true   # 兼容 React 等项目的终端交互需求
     tty: true          # 保持终端连接，查看日志输出

@@ -3,9 +3,9 @@ services:
 
 
 
-  mysql:
+  mysql-dev:
     image: mysql:8.0
-    container_name: dev-mysql
+    container_name: mysql-dev
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-chenhao20030210}
       MYSQL_DATABASE: ${MYSQL_DATABASE:-ai_agent_db}
@@ -33,18 +33,18 @@ services:
       retries: 10
       start_period: 30s
 
-  phpmyadmin:
+  phpmyadmin-dev:
     image: phpmyadmin/phpmyadmin
-    container_name: dev-phpmyadmin
+    container_name: phpmyadmin-dev
     environment:
-      PMA_HOST: mysql
+      PMA_HOST: mysql-dev
       PMA_PORT: 3306
       PMA_USER: ${MYSQL_USER:-test_user}
       PMA_PASSWORD: ${MYSQL_PASSWORD:-12345678}
     ports:
       - "${PMA_PORT:-8081}:80"
     depends_on:
-      - mysql
+      - mysql-dev
     networks:
       - shared-network
     restart: unless-stopped
@@ -65,6 +65,8 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD:-12345678}
     working_dir: /app  # 容器内工作目录（默认进入 /app，对应本地项目根目录）
     stdin_open: true
+    depends_on:
+      - mysql-dev
     tty: true
     # 容器启动命令：安装依赖 → 启动应用（热部署）
     command: >
