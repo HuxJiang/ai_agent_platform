@@ -5,9 +5,9 @@
       <h2>会话管理</h2>
       <div class="agent-select-container">
         <label for="agent-select">选择智能体：</label>
-        <select 
-          id="agent-select" 
-          v-model="selectedAgentId" 
+        <select
+          id="agent-select"
+          v-model="selectedAgentId"
           @change="handleAgentChange"
           class="agent-select"
         >
@@ -27,14 +27,14 @@
           <p>暂无消息，开始与智能体对话吧！</p>
         </div>
         <div v-else class="messages-list">
-          <div 
-            v-for="(message, index) in messages" 
-            :key="index" 
+          <div
+            v-for="(message, index) in messages"
+            :key="index"
             :class="['message-item', message.role]"
           >
             <div class="message-avatar">
-              <img 
-                :src="message.role === 'user' ? userAvatar : getAgentAvatar(message.role)" 
+              <img
+                :src="message.role === 'user' ? userAvatar : getAgentAvatar(message.role)"
                 :alt="message.role === 'user' ? '用户' : '智能体'"
               />
             </div>
@@ -49,15 +49,15 @@
       <!-- 输入区域 -->
       <div class="input-container">
         <div class="input-wrapper">
-          <input 
-            type="text" 
-            v-model="inputMessage" 
-            placeholder="请输入消息..." 
+          <input
+            type="text"
+            v-model="inputMessage"
+            placeholder="请输入消息..."
             class="message-input"
             @keyup.enter="handleSendMessage"
           />
-          <button 
-            class="send-button" 
+          <button
+            class="send-button"
             @click="handleSendMessage"
             :disabled="!inputMessage.trim() || sending"
           >
@@ -112,12 +112,12 @@ export default {
     // 获取智能体列表
     async getAgentsList() {
       if (!this.user) return
-      
+
       this.loading = true
       try {
         const response = await api.agent.getUserAgentList(this.user.id)
         this.agents = response.agents || []
-        
+
         // 如果有智能体，默认选择第一个作为主智能体
         if (this.agents.length > 0) {
           this.selectedAgentId = this.agents[0].id
@@ -135,7 +135,7 @@ export default {
     // 创建默认会话
     async createDefaultConversation() {
       if (!this.user || !this.selectedAgentId) return
-      
+
       this.loading = true
       try {
         const response = await api.conversation.createConversation({
@@ -147,7 +147,7 @@ export default {
           mainAgent: this.selectedAgentId,
           agentIds: [this.selectedAgentId]
         })
-        
+
         console.log('[调试] 创建会话返回:', response)
         this.currentConversation = response
         // 初始化空消息列表
@@ -169,11 +169,11 @@ export default {
     // 发送消息
     async handleSendMessage() {
       if (!this.inputMessage.trim() || !this.user || !this.currentConversation || this.sending) return
-      
+
       const messageContent = this.inputMessage.trim()
       this.inputMessage = ''
       this.sending = true
-      
+
       try {
         // 先添加用户消息到列表
         const userMessage = {
@@ -181,7 +181,7 @@ export default {
           content: messageContent
         }
         this.messages.push(userMessage)
-        
+
         // 调试：检查会话ID和发送参数
         console.log('[调试] 当前会话:', this.currentConversation)
         const sendParams = {
@@ -193,25 +193,19 @@ export default {
           }]
         }
         console.log('[调试] 发送消息参数:', sendParams)
-        
+
         // 调用API发送消息
         const response = await api.conversation.sendMessage(sendParams)
-        
-        // 处理响应，添加智能体消息
-        if (response && response.messages) {
-          const assistantMessage = response.messages.find(msg => msg.role === 'assistant')
-          if (assistantMessage) {
-            this.messages.push({
-              role: 'assistant',
-              content: assistantMessage.content,
-              createdAt: new Date().toISOString()
-            })
-          }
+
+        // 处理响应，兼容数组、messages字段或单个message字段
+        const responseMessages = this.extractAssistantMessages(response)
+
+        if (responseMessages.length > 0) {
+          this.messages.push(...responseMessages)
         } else {
-          // 如果响应中没有消息，添加一个默认的智能体消息
           this.messages.push({
             role: 'assistant',
-            content: response.content || '收到消息，正在处理中...',
+            content: (response && (response.content || response.message?.content)) || '收到消息，正在处理中...',
             createdAt: new Date().toISOString()
           })
         }
@@ -243,6 +237,30 @@ export default {
         minute: '2-digit',
         second: '2-digit'
       })
+    },
+
+    // 兼容不同后端返回格式，提取助手消息
+    extractAssistantMessages(response) {
+      const normalizeTimestamp = (value) => {
+        if (!value) return new Date().toISOString()
+        if (typeof value === 'number') return new Date(value).toISOString()
+        return new Date(value).toISOString()
+      }
+
+      const collectMessages = () => {
+        if (Array.isArray(response)) return response
+        if (Array.isArray(response?.messages)) return response.messages
+        if (response?.message) return [response.message]
+        return []
+      }
+
+      return collectMessages()
+        .filter(msg => msg && msg.role === 'assistant')
+        .map(msg => ({
+          role: 'assistant',
+          content: msg.content || '',
+          createdAt: normalizeTimestamp(msg.createdAt || msg.created_at || msg.timestamp)
+        }))
     }
   }
 }

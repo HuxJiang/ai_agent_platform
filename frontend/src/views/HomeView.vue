@@ -5,7 +5,7 @@
       <div class="navbar-brand">
         <h1 class="brand-name">智能体管理系统</h1>
       </div>
-      
+
       <div class="navbar-user">
         <div class="user-info">
           <span class="username">{{ user?.nickname || user?.username || '用户' }}</span>
@@ -15,7 +15,7 @@
         </button>
       </div>
     </header>
-    
+
     <div class="main-content">
       <!-- 左侧菜单栏 -->
       <aside class="sidebar">
@@ -49,43 +49,43 @@
           </ul>
         </nav>
       </aside>
-      
+
       <!-- 主页内容 -->
       <main class="content">
         <div class="welcome-section">
           <h2>欢迎回来，{{ user?.nickname || user?.username || '用户' }}！</h2>
           <p class="welcome-message">这是智能体管理系统的首页。</p>
         </div>
-        
+
         <!-- 智能体列表 -->
         <div class="agents-section">
           <h3>我的智能体</h3>
           <div class="agents-grid">
             <!-- 智能体avatar -->
-            <div 
-              v-for="agent in agents" 
-              :key="agent.id" 
+            <div
+              v-for="agent in agents"
+              :key="agent.id"
               class="agent-card"
             >
               <div class="avatar-container">
-                <img 
-                  :src="agent.avatar || 'https://via.placeholder.com/100'" 
-                  :alt="agent.name" 
+                <img
+                  :src="agent.avatar || 'https://via.placeholder.com/100'"
+                  :alt="agent.name"
                   class="avatar-img hand"
                   @click="handleAgentChat(agent)"
                 />
                 <div class="agent-name hand" @click="handleAgentChat(agent)">{{ agent.name }}</div>
               </div>
               <div class="agent-actions">
-                <button 
-                  class="btn-action btn-update" 
+                <button
+                  class="btn-action btn-update"
                   @click.stop="handleUpdateAgent(agent)"
                   title="更新智能体"
                 >
                   更新
                 </button>
-                <button 
-                  class="btn-action btn-delete" 
+                <button
+                  class="btn-action btn-delete"
                   @click.stop="handleDeleteAgent(agent)"
                   title="删除智能体"
                 >
@@ -93,7 +93,7 @@
                 </button>
               </div>
             </div>
-            
+
             <!-- 添加智能体按钮 -->
             <div class="agent-card add-agent" @click="showCreateModal = true">
               <div class="avatar-container">
@@ -105,7 +105,7 @@
         </div>
       </main>
     </div>
-    
+
     <!-- 创建智能体弹窗 -->
     <div v-if="showCreateModal" class="modal-overlay" @click.self="showCreateModal = false">
       <div class="modal-content">
@@ -116,10 +116,10 @@
         <div class="modal-body">
           <div class="form-group">
             <label for="agentName">智能体名称</label>
-            <input 
-              type="text" 
-              id="agentName" 
-              v-model="newAgentName" 
+            <input
+              type="text"
+              id="agentName"
+              v-model="newAgentName"
               placeholder="请输入智能体名称"
               class="form-input"
               @keyup.enter="handleCreateAgent"
@@ -152,10 +152,10 @@ export default {
   mounted() {
     // 获取用户信息
     this.getUserInfo()
-    
+
     // 检查登录状态
     this.checkLoginStatus()
-    
+
     // 获取智能体列表
     this.getAgentsList()
   },
@@ -164,7 +164,7 @@ export default {
     getUserInfo() {
       this.user = api.auth.getCurrentUser()
     },
-    
+
     // 检查登录状态
     checkLoginStatus() {
       if (!api.auth.isLoggedIn()) {
@@ -172,7 +172,7 @@ export default {
         this.$router.push('/login')
       }
     },
-    
+
     // 处理退出登录
     async handleLogout() {
       try {
@@ -185,7 +185,7 @@ export default {
         this.$router.push('/login')
       }
     },
-    
+
     // 获取智能体列表
     async getAgentsList() {
       // 新增：如果没有token，直接跳转登录
@@ -203,7 +203,7 @@ export default {
         this.agents = []
       }
     },
-    
+
     // 处理创建智能体
     handleCreateAgent() {
       if (this.newAgentName.trim()) {
@@ -212,13 +212,13 @@ export default {
           path: '/agents/creation',
           query: { name: this.newAgentName.trim() }
         })
-        
+
         // 重置表单
         this.newAgentName = ''
         this.showCreateModal = false
       }
     },
-    
+
     // 处理更新智能体
     handleUpdateAgent(agent) {
       // 将智能体数据编码后通过query传递
@@ -229,7 +229,7 @@ export default {
         }
       })
     },
-    
+
     // 处理删除智能体
     async handleDeleteAgent(agent) {
       if (confirm(`确定要删除智能体"${agent.name}"吗？此操作不可恢复。`)) {

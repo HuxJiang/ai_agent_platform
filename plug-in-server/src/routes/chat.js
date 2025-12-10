@@ -652,12 +652,9 @@ module.exports = async function messageRoute(fastify, opts = {}) {
                 data: {
                   type: 'object',
                   properties: {
-                    messages: {
-                      type: 'array',
-                      items: CHAT_MESSAGE_SCHEMA
-                    }
+                    message: CHAT_MESSAGE_SCHEMA
                   },
-                  required: ['messages'],
+                  required: ['message'],
                   additionalProperties: false
                 }
               }
@@ -1052,6 +1049,8 @@ module.exports = async function messageRoute(fastify, opts = {}) {
                   ? toolResponseContentText
                   : ensureStringContent(toolResponse);
 
+              const responseString = toolResponse ? ensureStringContent(toolResponse) : null;
+
               appendConversationMessage(conversationMessages, {
                 role: 'tool',
                 name: resolvedName,
@@ -1069,6 +1068,7 @@ module.exports = async function messageRoute(fastify, opts = {}) {
                 arguments: parsedArguments,
                 argumentsString,
                 response: toolResponse,
+                responseString,
                 error: toolError
               });
             }
@@ -1083,13 +1083,21 @@ module.exports = async function messageRoute(fastify, opts = {}) {
             finalReplyMetadata = finalToolResult?.metadata ?? null;
           }
 
-          // 组织返回给客户端的主体数据，包括工具调用详情。
-          const payload = { messages: conversationMessages };
-
           const newMessageOffset = historicalMessageCount;
           const newMessages = newMessageOffset > 0
             ? conversationMessages.slice(newMessageOffset)
             : [...conversationMessages];
+
+          const latestMessage = newMessages.length > 0
+            ? newMessages[newMessages.length - 1]
+            : conversationMessages[conversationMessages.length - 1] ?? null;
+
+          if (!latestMessage || typeof latestMessage !== 'object') {
+            throw new RouteError(500, 'Failed to resolve latest message');
+          }
+
+          // 组织返回给客户端的主体数据，仅包含最新消息。
+          const payload = { message: latestMessage };
 
           const toolCallResponseMap = new Map();
           for (const call of toolCallResponses) {
@@ -1182,6 +1190,7 @@ module.exports = async function messageRoute(fastify, opts = {}) {
                     agentName: call.agentName,
                     originalTool: call.originalTool,
                     arguments: call.argumentsString ?? (call.arguments ? ensureStringContent(call.arguments) : null),
+                    response: call.responseString ?? (call.response ? ensureStringContent(call.response) : null),
                     error: call.error === undefined ? null : call.error
                   }));
                 }
@@ -1211,7 +1220,7 @@ module.exports = async function messageRoute(fastify, opts = {}) {
               const callInfo = typeof message.tool_call_id === 'string' ? toolCallResponseMap.get(message.tool_call_id) : null;
 
               if (callInfo) {
-                const { agentId, agentName, originalTool, argumentsString, error } = callInfo;
+                const { agentId, agentName, originalTool, argumentsString, error, responseString, response } = callInfo;
                 if (agentId !== undefined) {
                   toolMetadata.agentId = agentId;
                 }
@@ -1225,6 +1234,9 @@ module.exports = async function messageRoute(fastify, opts = {}) {
                   toolMetadata.arguments = argumentsString;
                 }
                 toolMetadata.error = error === undefined ? null : error;
+                if (responseString !== undefined) {
+                  toolMetadata.response = responseString ?? (response ? ensureStringContent(response) : null);
+                }
               }
 
               metadataPayload = toolMetadata;

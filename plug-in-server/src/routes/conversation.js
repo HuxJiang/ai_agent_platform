@@ -1,4 +1,4 @@
-const { ensureJson, parseJsonColumn, normalizeDate } = require('../utils/serialization');
+const { ensureJson, parseJsonColumn, normalizeDate, ensureStringContent } = require('../utils/serialization');
 const { ensurePositiveInteger } = require('../utils/validation');
 const { ensureMysqlReady } = require('../utils/mysql');
 module.exports = async function conversationRoute(fastify, opts = {}) {
@@ -753,6 +753,334 @@ module.exports = async function conversationRoute(fastify, opts = {}) {
 
         return reply.sendError('Failed to update conversation', 500);
       }
+    }
+  });
+
+  fastify.route({
+    method: 'GET',
+    url: `${basePath}/detail`,
+    schema: {
+      tags: swaggerTags,
+      summary: 'Get conversation detail',
+      querystring: {
+        type: 'object',
+        required: ['conversationId', 'userId'],
+        properties: {
+          conversationId: { type: 'integer', minimum: 1 },
+          userId: { type: 'integer', minimum: 1 }
+        },
+        additionalProperties: false
+      },
+      response: {
+        200: {
+          allOf: [
+            { $ref: 'ResponseBase#' },
+            {
+              type: 'object',
+              properties: {
+                data: {
+                  type: 'object',
+                  properties: {
+                    conversation: {
+                      type: 'object',
+                      properties: {
+                        id: { type: 'integer' },
+                        userId: { type: 'integer' },
+                        mainAgent: { type: ['integer', 'null'] },
+                        agentIds: {
+                          type: 'array',
+                          items: { type: 'integer' }
+                        },
+                        title: { type: ['string', 'null'] },
+                        metadata: {},
+                        provider: { type: ['string', 'null'] },
+                        model: { type: ['string', 'null'] },
+                        temperature: { type: ['number', 'null'] },
+                        maxTokens: { type: ['integer', 'null'] },
+                        createdAt: { type: ['string', 'null'], format: 'date-time' },
+                        updatedAt: { type: ['string', 'null'], format: 'date-time' }
+                      },
+                      required: [
+                        'id',
+                        'userId',
+                        'mainAgent',
+                        'agentIds',
+                        'title',
+                        'metadata',
+                        'provider',
+                        'model',
+                        'temperature',
+                        'maxTokens',
+                        'createdAt',
+                        'updatedAt'
+                      ],
+                      additionalProperties: false
+                    },
+                    mainAgent: {
+                      type: ['object', 'null'],
+                      properties: {
+                        id: { type: 'integer' },
+                        name: { type: ['string', 'null'] },
+                        description: { type: ['string', 'null'] },
+                        avatar: { type: ['string', 'null'] },
+                        category: { type: ['string', 'null'] },
+                        url: { type: ['string', 'null'] },
+                        connectType: { type: ['string', 'null'] },
+                        isTested: { type: 'boolean' },
+                        isPublic: { type: 'boolean' },
+                        createdAt: { type: ['string', 'null'], format: 'date-time' },
+                        updatedAt: { type: ['string', 'null'], format: 'date-time' }
+                      },
+                      required: [
+                        'id',
+                        'name',
+                        'description',
+                        'avatar',
+                        'category',
+                        'url',
+                        'connectType',
+                        'isTested',
+                        'isPublic',
+                        'createdAt',
+                        'updatedAt'
+                      ],
+                      additionalProperties: false
+                    },
+                    linkedAgents: {
+                      type: 'array',
+                      items: {
+                        type: 'object',
+                        properties: {
+                          id: { type: 'integer' },
+                          name: { type: ['string', 'null'] },
+                          description: { type: ['string', 'null'] },
+                          avatar: { type: ['string', 'null'] },
+                          category: { type: ['string', 'null'] },
+                          url: { type: ['string', 'null'] },
+                          connectType: { type: ['string', 'null'] },
+                          isTested: { type: 'boolean' },
+                          isPublic: { type: 'boolean' },
+                          createdAt: { type: ['string', 'null'], format: 'date-time' },
+                          updatedAt: { type: ['string', 'null'], format: 'date-time' }
+                        },
+                        required: [
+                          'id',
+                          'name',
+                          'description',
+                          'avatar',
+                          'category',
+                          'url',
+                          'connectType',
+                          'isTested',
+                          'isPublic',
+                          'createdAt',
+                          'updatedAt'
+                        ],
+                        additionalProperties: false
+                      }
+                    },
+                    messages: {
+                      type: 'array',
+                      items: {
+                        type: 'object',
+                        properties: {
+                          id: { type: 'integer' },
+                          role: { type: 'string' },
+                          content: { type: 'string' },
+                          type: { type: 'string' },
+                          metadata: {},
+                          createdAt: { type: ['string', 'null'], format: 'date-time' }
+                        },
+                        required: ['id', 'role', 'content', 'type', 'metadata', 'createdAt'],
+                        additionalProperties: false
+                      }
+                    }
+                  },
+                  required: ['conversation', 'mainAgent', 'linkedAgents', 'messages'],
+                  additionalProperties: false
+                }
+              }
+            }
+          ]
+        },
+        400: { $ref: 'ResponseBase#' },
+        403: { $ref: 'ResponseBase#' },
+        404: { $ref: 'ResponseBase#' },
+        503: { $ref: 'ResponseBase#' }
+      }
+    },
+    handler: async (request, reply) => {
+      const { conversationId: rawConversationId, userId: rawUserId } = request.query || {};
+
+      if (!ensureMysqlReady(fastify, reply)) {
+        return;
+      }
+
+      let conversationId;
+      let userId;
+
+      try {
+        conversationId = ensurePositiveInteger(rawConversationId, 'conversationId');
+        userId = ensurePositiveInteger(rawUserId, 'userId');
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Invalid payload';
+        return reply.sendError(message, 400);
+      }
+
+      let conversationRows;
+      try {
+        conversationRows = await fastify.mysql.query(
+          'SELECT id, creator_id, title, metadata, provider, model, temperature, max_tokens, main_agent_id, created_at, updated_at FROM conversation WHERE id = ? LIMIT 1',
+          [conversationId]
+        );
+      } catch (error) {
+        fastify.log.error({ err: error, conversationId }, 'Failed to load conversation detail');
+        return reply.sendError('Failed to load conversation', 500);
+      }
+
+      if (!Array.isArray(conversationRows) || conversationRows.length === 0) {
+        return reply.sendError('Conversation not found', 404);
+      }
+
+      const conversationRow = conversationRows[0];
+
+      if (Number(conversationRow.creator_id) !== userId) {
+        return reply.sendError('User does not own the conversation', 403);
+      }
+
+      const mainAgentId =
+        conversationRow.main_agent_id === undefined || conversationRow.main_agent_id === null
+          ? null
+          : Number(conversationRow.main_agent_id);
+
+      let mainAgentData = null;
+
+      if (mainAgentId !== null) {
+        let mainAgentRows;
+        try {
+          mainAgentRows = await fastify.mysql.query(
+            'SELECT id, name, description, avatar, category, url, connect_type, is_tested, is_public, created_at, updated_at FROM agent WHERE id = ? LIMIT 1',
+            [mainAgentId]
+          );
+        } catch (error) {
+          fastify.log.error({ err: error, mainAgentId }, 'Failed to load main agent for conversation detail');
+          return reply.sendError('Failed to load main agent', 500);
+        }
+
+        if (!Array.isArray(mainAgentRows) || mainAgentRows.length === 0) {
+          return reply.sendError('Main agent not found', 404);
+        }
+
+        const mainAgentRow = mainAgentRows[0];
+        mainAgentData = {
+          id: Number(mainAgentRow.id),
+          name: mainAgentRow.name || null,
+          description: mainAgentRow.description || null,
+          avatar: mainAgentRow.avatar || null,
+          category: mainAgentRow.category || null,
+          url: mainAgentRow.url || null,
+          connectType: mainAgentRow.connect_type || null,
+          isTested: Number(mainAgentRow.is_tested) === 1,
+          isPublic: Number(mainAgentRow.is_public) === 1,
+          createdAt: normalizeDate(mainAgentRow.created_at),
+          updatedAt: normalizeDate(mainAgentRow.updated_at)
+        };
+      }
+
+      let linkedAgentRows = [];
+      try {
+        linkedAgentRows = await fastify.mysql.query(
+          'SELECT a.id, a.name, a.description, a.avatar, a.category, a.url, a.connect_type, a.is_tested, a.is_public, a.created_at, a.updated_at FROM agent_conversation ac INNER JOIN agent a ON a.id = ac.agent_id WHERE ac.conversation_id = ? ORDER BY a.id ASC',
+          [conversationId]
+        );
+      } catch (error) {
+        fastify.log.error({ err: error, conversationId }, 'Failed to load linked agents for conversation detail');
+        return reply.sendError('Failed to load linked agents', 500);
+      }
+
+      const linkedAgents = Array.isArray(linkedAgentRows)
+        ? linkedAgentRows
+            .map((row) => ({
+              id: Number(row.id),
+              name: row.name || null,
+              description: row.description || null,
+              avatar: row.avatar || null,
+              category: row.category || null,
+              url: row.url || null,
+              connectType: row.connect_type || null,
+              isTested: Number(row.is_tested) === 1,
+              isPublic: Number(row.is_public) === 1,
+              createdAt: normalizeDate(row.created_at),
+              updatedAt: normalizeDate(row.updated_at)
+            }))
+            .filter((agent) => agent.id !== mainAgentId)
+        : [];
+
+      let messageRows = [];
+      try {
+        messageRows = await fastify.mysql.query(
+          'SELECT id, role, content, type, metadata, created_at FROM message WHERE conversation_id = ? ORDER BY id ASC',
+          [conversationId]
+        );
+      } catch (error) {
+        fastify.log.error({ err: error, conversationId }, 'Failed to load conversation messages');
+        return reply.sendError('Failed to load conversation messages', 500);
+      }
+
+      const messages = Array.isArray(messageRows)
+        ? messageRows.map((row) => {
+            const role = typeof row.role === 'string' ? row.role : '';
+            const content =
+              typeof row.content === 'string' && row.content.length > 0
+                ? row.content
+                : ensureStringContent(row.content);
+
+            return {
+              id: Number(row.id),
+              role,
+              content,
+              type: typeof row.type === 'string' ? row.type : 'text',
+              metadata: parseJsonColumn(row.metadata),
+              createdAt: normalizeDate(row.created_at)
+            };
+          })
+        : [];
+
+      const agentIds = [];
+      if (mainAgentId !== null) {
+        agentIds.push(mainAgentId);
+      }
+      for (const agent of linkedAgents) {
+        agentIds.push(agent.id);
+      }
+
+      const conversationData = {
+        id: Number(conversationRow.id),
+        userId: Number(conversationRow.creator_id),
+        mainAgent: mainAgentId,
+        agentIds,
+        title: conversationRow.title || null,
+        metadata: parseJsonColumn(conversationRow.metadata),
+        provider: conversationRow.provider || null,
+        model: conversationRow.model || null,
+        temperature:
+          conversationRow.temperature === undefined || conversationRow.temperature === null
+            ? null
+            : Number(conversationRow.temperature),
+        maxTokens:
+          conversationRow.max_tokens === undefined || conversationRow.max_tokens === null
+            ? null
+            : Number(conversationRow.max_tokens),
+        createdAt: normalizeDate(conversationRow.created_at),
+        updatedAt: normalizeDate(conversationRow.updated_at)
+      };
+
+      return reply.sendSuccess({
+        conversation: conversationData,
+        mainAgent: mainAgentData,
+        linkedAgents,
+        messages
+      });
     }
   });
 
