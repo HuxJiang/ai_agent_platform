@@ -138,14 +138,20 @@ export default {
 
       this.loading = true
       try {
+        const mainAgentId = Number(this.selectedAgentId)
+        const agentIds = Array.from(new Set([
+          2,
+          3
+        ].filter(id => typeof id === 'number' && !Number.isNaN(id))))
+
         const response = await api.conversation.createConversation({
           userId: this.user.id,
           model: 'deepseek-chat', // 默认模型，可根据实际情况调整
           provider: 'deepseek',
           temperature: 0.7,
           maxTokens: 1024,
-          mainAgent: this.selectedAgentId,
-          agentIds: [this.selectedAgentId]
+          mainAgent: mainAgentId,
+          agentIds
         })
 
         console.log('[调试] 创建会话返回:', response)
