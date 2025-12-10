@@ -197,6 +197,7 @@ export default {
       
       // 原始文本导入表单
       rawImportForm: {
+        source: 'raw',
         title: '',
         category: '',
         text: '',
@@ -295,6 +296,7 @@ export default {
         
         // 清空表单
         this.rawImportForm = {
+          source: 'raw',
           title: '',
           category: '',
           text: '',

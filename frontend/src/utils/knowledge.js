@@ -10,7 +10,7 @@ export const knowledgeAPI = {
    */
   async ingestRaw(data) {
     try {
-      const response = await post('/rag/ingest-raw', data)
+      const response = await post('/rag/ingest', data)
       return response
     } catch (error) {
       console.error('导入原始文本失败:', error)
