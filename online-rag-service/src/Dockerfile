@@ -8,11 +8,11 @@ USER appuser
 WORKDIR /app
 
 # 安装系统依赖
-USER root
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc \
-    libgomp1 \
-    && rm -rf /var/lib/apt/lists/*
+# USER root
+# RUN apt-get update && apt-get install -y --no-install-recommends \
+#     gcc \
+#     libgomp1 \
+#     && rm -rf /var/lib/apt/lists/*
 USER appuser
 
 # 设置Python环境变量
