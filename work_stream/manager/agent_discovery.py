@@ -11,11 +11,25 @@ import os
 class AgentDiscoveryService:
     """Agent和MCP工具发现服务"""
     
-    def __init__(self, plugin_server_url: str = "http://localhost:3000"):
-        self.plugin_server_url = plugin_server_url
+    def __init__(self, plugin_server_url: str = None):
+        # 设置plugin_server_url，优先使用传入参数，否则根据环境自动设置
+        if plugin_server_url:
+            self.plugin_server_url = plugin_server_url
+        else:
+            # 检查是否在Docker环境中
+            is_docker = os.getenv('DOCKER_ENV') or os.path.exists('/.dockerenv')
+            if is_docker:
+                self.plugin_server_url = "http://plugin-server:3000"
+            else:
+                self.plugin_server_url = "http://localhost:3000"
+        
         self.client = httpx.AsyncClient()
+        
+        # 检查是否在Docker环境中
+        is_docker = os.getenv('DOCKER_ENV') or os.path.exists('/.dockerenv')
+        
         self.db_config = {
-            'host': os.getenv('DB_HOST', 'localhost'),
+            'host': os.getenv('DB_HOST', 'mysql' if is_docker else 'localhost'),
             'port': int(os.getenv('DB_PORT', '3306')),
             'user': os.getenv('DB_USER', 'test_user'),
             'password': os.getenv('DB_PASSWORD', '12345678'),

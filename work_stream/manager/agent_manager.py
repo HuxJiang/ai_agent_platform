@@ -1,5 +1,7 @@
 from typing import Dict, Any, List, Callable, Optional, Union
 import asyncio
+import mysql.connector
+import os
 
 # 导入MCP客户端
 from clients import MCPClient, MCPError
@@ -46,16 +48,77 @@ class AgentInfo:
 
 class AgentManager:
     """智能体管理器，用于统一管理和调用多个智能体"""
-    def __init__(self, mcp_base_url: str = "http://localhost:3000"):
+    def __init__(self, mcp_base_url: str = None):
         """
         初始化智能体管理器
         
         Args:
-            mcp_base_url: MCP API的基础URL
+            mcp_base_url: MCP API的基础URL，如果为None则根据环境自动设置
         """
         self.agents: Dict[str, AgentInfo] = {}
-        self.mcp_client = MCPClient(mcp_base_url)
+        
+        # 设置MCP基础URL，优先使用传入参数，否则根据环境自动设置
+        if mcp_base_url:
+            self.mcp_base_url = mcp_base_url
+        else:
+            # 检查是否在Docker环境中
+            is_docker = os.getenv('DOCKER_ENV') or os.path.exists('/.dockerenv')
+            if is_docker:
+                self.mcp_base_url = "http://plugin-server:3000"
+            else:
+                self.mcp_base_url = "http://localhost:3000"
+        
+        self.mcp_client = MCPClient(self.mcp_base_url)
         self.mcp_client_connections: Dict[str, Dict[str, Any]] = {}  # 存储MCP客户端连接信息
+        
+        # 数据库配置
+        self.db_config = {
+            'host': os.getenv('DB_HOST', 'mysql' if os.getenv('DOCKER_ENV') or os.path.exists('/.dockerenv') else 'localhost'),
+            'port': int(os.getenv('DB_PORT', '3306')),
+            'user': os.getenv('DB_USER', 'test_user'),
+            'password': os.getenv('DB_PASSWORD', '12345678'),
+            'database': os.getenv('DB_NAME', 'ai_agent_db')
+        }
+    
+    def _get_agent_url_from_db(self, agent_id: int) -> str:
+        """
+        从数据库获取指定agent的URL
+        
+        Args:
+            agent_id: agent ID
+            
+        Returns:
+            agent的URL
+            
+        Raises:
+            ValueError: 如果未找到agent或agent没有URL
+        """
+        try:
+            # 连接数据库
+            connection = mysql.connector.connect(**self.db_config)
+            cursor = connection.cursor(dictionary=True)
+            
+            # 查询指定agent的URL
+            query = "SELECT url FROM agent WHERE id = %s"
+            cursor.execute(query, (agent_id,))
+            agent = cursor.fetchone()
+            
+            # 关闭数据库连接
+            cursor.close()
+            connection.close()
+            
+            if not agent:
+                raise ValueError(f"未找到ID为 {agent_id} 的agent")
+            
+            if not agent.get("url"):
+                raise ValueError(f"agent ID {agent_id} 没有配置URL")
+            
+            return agent["url"]
+            
+        except mysql.connector.Error as e:
+            raise ValueError(f"数据库查询失败: {str(e)}")
+        except Exception as e:
+            raise ValueError(f"获取agent URL失败: {str(e)}")
 
 
     def register_agent(
@@ -102,7 +165,7 @@ class AgentManager:
         self,
         name: str,
         description: str,
-        mcp_client_id: str,
+        agent_id: int,
         mcp_tool_name: str,
         input_schema: Optional[Any] = None,
         output_schema: Optional[Any] = None,
@@ -114,7 +177,7 @@ class AgentManager:
         Args:
             name: 智能体名称（唯一标识符）
             description: 智能体描述
-            mcp_client_id: MCP客户端ID
+            agent_id: agent ID（用于从数据库获取URL）
             mcp_tool_name: MCP工具名称
             input_schema: 输入参数模式（可选）
             output_schema: 输出结果模式（可选）
@@ -128,14 +191,28 @@ class AgentManager:
             if dep not in self.agents:
                 raise ValueError(f"智能体 '{name}' 依赖的智能体 '{dep}' 不存在")
         
-        # 验证MCP客户端连接是否存在
+        # 生成MCP客户端ID
+        mcp_client_id = f"agent_{agent_id}"
+        
+        # 验证MCP客户端连接是否存在，如果不存在则自动创建
         if mcp_client_id not in self.mcp_client_connections:
-            raise ValueError(f"MCP客户端连接 '{mcp_client_id}' 不存在")
+            # 从数据库获取agent的URL
+            agent_url = self._get_agent_url_from_db(agent_id)
+            
+            # 构建MCP服务器配置
+            server_config = {
+                "type": "http",
+                "url": agent_url
+            }
+            
+            # 建立MCP连接
+            self.connect_mcp_client(mcp_client_id, server_config)
         
         # 创建MCP智能体配置
         mcp_agent_config = {
             "mcp_tool_name": mcp_tool_name,
-            "mcp_client_id": mcp_client_id
+            "mcp_client_id": mcp_client_id,
+            "agent_id": agent_id
         }
         
         self.agents[name] = AgentInfo(
@@ -237,8 +314,8 @@ class AgentManager:
                     "arguments": kwargs
                 }
                 
-                # 执行MCP操作
-                result = self.mcp_client.execute_mcp_operation(mcp_client_id, operation)
+                # 执行MCP操作（同步方法，在异步上下文中使用线程池执行）
+                result = await asyncio.to_thread(self.mcp_client.execute_mcp_operation, mcp_client_id, operation)
                 return result
             except MCPError as e:
                 raise ValueError(f"MCP智能体调用失败: {str(e)}")
