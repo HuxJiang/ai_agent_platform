@@ -1,5 +1,5 @@
 // 导入必要的工具函数和请求方法
-import { post } from './user.js'
+import { post } from './http.js'
 
 /**
  * 知识库相关API

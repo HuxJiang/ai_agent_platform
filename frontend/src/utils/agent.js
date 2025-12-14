@@ -1,5 +1,5 @@
 // 导入必要的工具函数和请求方法
-import { get, post, del } from './user.js'
+import { get, post, del } from './http.js'
 
 /**
  * 智能体相关API
