@@ -197,7 +197,6 @@ services:
 
 
 
-
     ports:
       - "${PLUGIN_SERVER_PORT:-3000}:3000"
     healthcheck:
@@ -211,6 +210,26 @@ services:
         condition: service_healthy
       backend:
         condition: service_healthy
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  workstream:
+    build:
+      context: ./work_stream
+      dockerfile: Dockerfile
+    image: ${PROJECT_NAME:-ai-agent-platform}-workstream:latest
+    container_name: ${PROJECT_NAME:-ai-agent-platform}-workstream
+    environment:
+      OPENAI_API_KEY: ${OPENAI_API_KEY}      # 从主机环境传递 OpenAI API Key
+      TZ: ${TZ:-Asia/Shanghai}
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./work_stream/.env:/app/.env
+    depends_on:
+      - backend
+      - plugin-server
     networks:
       - app-network
     restart: unless-stopped
