@@ -19,7 +19,7 @@
     </header>
 
     <div class="main-layout">
-      <!-- 2. 左侧侧边栏 -->
+      <!-- 2. 左侧导航侧边栏 -->
       <aside class="sidebar">
         <nav class="menu">
           <ul class="menu-list">
@@ -51,30 +51,85 @@
         </nav>
       </aside>
 
-      <!-- 3. 核心聊天内容区 -->
+      <!-- 3. 左侧会话菜单栏 -->
+      <aside class="conversation-sidebar">
+        <!-- 会话列表区域 -->
+        <div class="conversations-section">
+          <div class="section-header">
+            <h3>我的会话</h3>
+            <button class="btn-new-conversation" @click="createNewConversation" title="创建新会话">
+              + 新建会话
+            </button>
+          </div>
+          
+          <div class="conversations-list">
+            <div v-if="conversationsLoading" class="loading-conversations">
+              <div class="spinner small"></div>
+              <span>加载会话中...</span>
+            </div>
+            
+            <div v-else-if="conversations.length === 0" class="no-conversations">
+              <p>暂无会话</p>
+              <button class="btn-small" @click="createNewConversation">创建第一个会话</button>
+            </div>
+            
+            <div
+              v-for="conversation in conversations"
+              :key="conversation.id"
+              :class="['conversation-item', { active: currentConversation?.id === conversation.id }]"
+            >
+              <div class="conversation-info" @click="selectConversation(conversation)">
+                <div class="conversation-title">{{ conversation.title || '未命名会话' }}</div>
+                <div class="conversation-preview">{{ getConversationPreview(conversation) }}</div>
+              </div>
+              <div class="conversation-actions">
+                <span class="conversation-time">{{ formatTime(conversation.updatedAt || conversation.createdAt) }}</span>
+                <button 
+                  class="btn-delete-conversation" 
+                  @click.stop="deleteConversation(conversation)" 
+                  title="删除会话"
+                >
+                  🗑️
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 对话模型选择区域 -->
+        <div class="model-selector-section">
+          <div class="section-header">
+            <h3>对话模型</h3>
+          </div>
+          <div class="model-selector">
+            <select
+              id="agent-select"
+              v-model="selectedAgentId"
+              @change="handleAgentChange"
+              class="agent-select"
+            >
+              <option v-for="agent in agents" :key="agent.id" :value="agent.id">
+                🤖 {{ agent.name }}
+              </option>
+            </select>
+            <span class="select-arrow">▼</span>
+          </div>
+        </div>
+      </aside>
+
+      <!-- 4. 核心聊天内容区 -->
       <main class="chat-content">
         <!-- 聊天头部 -->
         <header class="chat-header">
           <div class="header-info">
-            <h2>实时对话</h2>
+            <h2>{{ currentConversation?.title || '实时对话' }}</h2>
             <p class="subtitle">与您的 AI 助手进行互动</p>
           </div>
           
-          <div class="agent-selector-wrapper">
-            <div class="selector-label">当前对话模型：</div>
-            <div class="custom-select">
-              <select
-                id="agent-select"
-                v-model="selectedAgentId"
-                @change="handleAgentChange"
-                class="agent-select"
-              >
-                <option v-for="agent in agents" :key="agent.id" :value="agent.id">
-                  🤖 {{ agent.name }}
-                </option>
-              </select>
-              <span class="select-arrow">▼</span>
-            </div>
+          <div class="header-actions">
+            <button class="btn-small" @click="createNewConversation">
+              + 新会话
+            </button>
           </div>
         </header>
 
@@ -88,7 +143,7 @@
           <div v-else-if="messages.length === 0" class="state-container empty">
             <div class="empty-icon">👋</div>
             <h3>开始新对话</h3>
-            <p>选择一个智能体并发送消息吧</p>
+            <p>与您的智能助手开始交流吧</p>
           </div>
           
           <div v-else class="messages-list">
@@ -154,17 +209,23 @@ export default {
       user: null,
       agents: [],
       selectedAgentId: null,
+      urlAgentId: null,
       currentConversation: null,
       messages: [],
       inputMessage: '',
       loading: false,
       sending: false,
-      userAvatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Felix'
+      userAvatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Felix',
+      // 会话列表相关数据
+      conversations: [],
+      conversationsLoading: false
     }
   },
   mounted() {
     this.checkLoginStatus()
     this.getUserInfo()
+    // 从URL参数中获取agent_id（如果有）
+    this.urlAgentId = this.$route.query.agent_id
     this.getAgentsList()
   },
   updated() {
@@ -187,13 +248,95 @@ export default {
         const response = await api.agent.getUserAgentList(this.user.id)
         this.agents = response.agents || []
         if (this.agents.length > 0) {
-          this.selectedAgentId = this.agents[0].id
+          // 优先使用URL参数中的agent_id，否则使用第一个智能体
+          if (this.urlAgentId) {
+            // 转换为字符串进行比较，确保类型匹配
+            const urlAgentIdStr = String(this.urlAgentId)
+            const matchingAgent = this.agents.find(agent => String(agent.id) === urlAgentIdStr)
+            if (matchingAgent) {
+              // 使用与agent.id相同类型的值
+              this.selectedAgentId = matchingAgent.id
+            } else {
+              this.selectedAgentId = this.agents[0].id
+            }
+          } else {
+            this.selectedAgentId = this.agents[0].id
+          }
+          // 创建默认会话前，先获取会话列表
+          await this.getConversationsList()
           this.createDefaultConversation()
         }
       } catch (error) {
         console.error('Error:', error)
       } finally {
         this.loading = false
+      }
+    },
+    // 获取会话列表
+    async getConversationsList() {
+      if (!this.user) return
+      this.conversationsLoading = true
+      try {
+        const response = await api.conversation.getConversationList({ userId: this.user.id })
+        this.conversations = response || []
+      } catch (error) {
+        console.error('获取会话列表失败:', error)
+        this.conversations = []
+      } finally {
+        this.conversationsLoading = false
+      }
+    },
+    // 创建新会话
+    async createNewConversation() {
+      if (!this.user || !this.selectedAgentId) return
+      this.loading = true
+      try {
+        await this.createDefaultConversation()
+        // 创建成功后，重新获取会话列表
+        await this.getConversationsList()
+      } catch (error) {
+        console.error('创建新会话失败:', error)
+      } finally {
+        this.loading = false
+      }
+    },
+    // 选择会话
+    async selectConversation(conversation) {
+      this.currentConversation = conversation
+      // 可以在这里添加加载会话消息的逻辑
+      this.messages = []
+      // 更新当前智能体选择
+      if (conversation.mainAgent) {
+        this.selectedAgentId = conversation.mainAgent
+      }
+    },
+    // 获取会话预览
+    getConversationPreview(conversation) {
+      if (conversation.messages && conversation.messages.length > 0) {
+        const lastMessage = conversation.messages[conversation.messages.length - 1]
+        return lastMessage.content?.substring(0, 30) + (lastMessage.content?.length > 30 ? '...' : '')
+      }
+      return '无消息'
+    },
+    // 删除会话
+    async deleteConversation(conversation) {
+      if (confirm(`确定要删除会话"${conversation.title || '未命名会话'}"吗？此操作不可恢复。`)) {
+        try {
+          // 直接传递queryParams参数，生成正确的URL
+          await api.conversation.deleteConversation({
+            conversationId: conversation.id,
+            userId: this.user.id
+          })
+          // 后续逻辑不变
+          await this.getConversationsList()
+          if (this.currentConversation?.id === conversation.id) {
+            this.currentConversation = null
+            this.messages = []
+          }
+        } catch (error) {
+          console.error('删除会话失败:', error)
+          alert('删除会话失败，请稍后重试')
+        }
       }
     },
     async createDefaultConversation() {
@@ -220,7 +363,13 @@ export default {
       }
     },
     async handleAgentChange() {
-      await this.createDefaultConversation()
+      // 通过路由跳转带上agent_id参数，实现模型切换
+      this.$router.push({
+        path: '/conversation',
+        query: {
+          agent_id: this.selectedAgentId
+        }
+      })
     },
     async handleSendMessage() {
       if (!this.inputMessage.trim() || !this.user || !this.currentConversation || this.sending) return
@@ -354,6 +503,196 @@ export default {
 .sidebar {
   width: 240px; background-color: var(--white); border-right: 1px solid var(--border-color);
   padding: 24px 16px; flex-shrink: 0;
+}
+
+/* ================== Conversation Sidebar ================== */
+.conversation-sidebar {
+  width: 280px; background-color: var(--white); border-right: 1px solid var(--border-color);
+  display: flex; flex-direction: column; flex-shrink: 0;
+  overflow: hidden;
+}
+
+/* Section Common Styles */
+.section-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 16px 20px; border-bottom: 1px solid var(--border-color);
+}
+
+.section-header h3 {
+  font-size: 14px; font-weight: 600; color: var(--text-main); margin: 0;
+}
+
+/* Conversations Section */
+.conversations-section {
+  flex: 1; overflow: hidden;
+  display: flex; flex-direction: column;
+}
+
+.conversations-list {
+  flex: 1; overflow-y: auto; padding: 8px;
+}
+
+.conversations-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.conversations-list::-webkit-scrollbar-thumb {
+  background-color: #d1d5db; border-radius: 10px;
+}
+
+/* Loading Conversations */
+.loading-conversations {
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px; gap: 8px;
+  color: var(--text-sub);
+}
+
+.spinner.small {
+  width: 20px; height: 20px; border-width: 2px;
+}
+
+/* No Conversations */
+.no-conversations {
+  text-align: center; padding: 40px 20px;
+  color: var(--text-sub);
+}
+
+.no-conversations .btn-small {
+  margin-top: 16px;
+  padding: 8px 16px;
+  background: var(--primary-color);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.no-conversations .btn-small:hover {
+  background: var(--primary-hover);
+}
+
+/* Conversation Item */
+.conversation-item {
+  display: flex; flex-direction: column;
+  padding: 12px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-bottom: 4px;
+  background: #f9fafb;
+  border: 1px solid transparent;
+}
+
+.conversation-item:hover {
+  background: #f3f4f6;
+}
+
+.conversation-item.active {
+  background: #e0e7ff;
+  border-color: var(--primary-color);
+}
+
+.conversation-info {
+  flex: 1; margin-bottom: 8px;
+}
+
+.conversation-title {
+  font-size: 14px; font-weight: 600; color: var(--text-main);
+  margin-bottom: 4px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+.conversation-preview {
+  font-size: 12px; color: var(--text-sub);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+.conversation-actions {
+  display: flex; justify-content: flex-end; align-items: flex-start;
+  gap: 8px;
+  padding-left: 12px;
+}
+
+.conversation-time {
+  font-size: 11px; color: #9ca3af;
+  margin-top: 4px;
+}
+
+/* Delete Conversation Button */
+.btn-delete-conversation {
+  width: 24px; height: 24px;
+  border: none;
+  background: transparent;
+  color: #9ca3af;
+  cursor: pointer;
+  border-radius: 4px;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.btn-delete-conversation:hover {
+  background: #fef2f2;
+  color: #ef4444;
+}
+
+/* New Conversation Button */
+.btn-new-conversation {
+  padding: 6px 12px;
+  background: var(--primary-color);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-new-conversation:hover {
+  background: var(--primary-hover);
+}
+
+/* Model Selector Section */
+.model-selector-section {
+  border-top: 1px solid var(--border-color);
+  padding: 16px 20px;
+}
+
+.model-selector-section .section-header {
+  padding: 0 0 12px 0;
+  border-bottom: none;
+}
+
+.model-selector {
+  position: relative;
+}
+
+.model-selector .agent-select {
+  width: 100%;
+}
+
+/* Header Actions */
+.header-actions {
+  display: flex; gap: 12px;
+}
+
+.header-actions .btn-small {
+  padding: 6px 12px;
+  background: var(--primary-color);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.header-actions .btn-small:hover {
+  background: var(--primary-hover);
 }
 .menu-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; }
 .menu-link {
@@ -502,11 +841,23 @@ export default {
 .loading-dots { font-size: 20px; line-height: 10px; animation: pulse 1s infinite; }
 @keyframes pulse { 0% { opacity: 0.3; } 50% { opacity: 1; } 100% { opacity: 0.3; } }
 
+@media (max-width: 1024px) {
+  .conversation-sidebar {
+    width: 240px;
+  }
+}
+
 @media (max-width: 768px) {
   .sidebar { display: none; }
+  .conversation-sidebar {
+    display: none;
+  }
   .chat-header, .chat-viewport, .chat-input-area { padding-left: 16px; padding-right: 16px; }
   .agent-selector-wrapper { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
   .selector-label { display: none; }
   .custom-select { width: 140px; }
+  .header-actions {
+    display: none;
+  }
 }
 </style>

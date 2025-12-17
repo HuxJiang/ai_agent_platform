@@ -65,7 +65,7 @@
 
             <form @submit.prevent="handleSubmit" class="agent-form">
               <!-- 第一部分：基本信息 -->
-              <div class="form-section">
+              <div class="form-section last">
                 <h3 class="section-title">基本信息</h3>
                 
                 <div class="form-group">
@@ -76,6 +76,7 @@
                     class="form-input"
                     placeholder="给您的助手起个名字"
                     required
+                    disabled
                   />
                 </div>
 
@@ -98,6 +99,7 @@
                       v-model="formData.category"
                       class="form-input"
                       placeholder="例如：客服"
+                      disabled
                     />
                   </div>
                    <div class="form-group half">
@@ -107,89 +109,9 @@
                       v-model="formData.avatar"
                       class="form-input"
                       placeholder="https://..."
+                      disabled
                     />
                   </div>
-                </div>
-              </div>
-
-              <!-- 第二部分：核心设定 -->
-              <div class="form-section">
-                <h3 class="section-title">核心设定</h3>
-                <div class="form-group">
-                  <label class="form-label">系统提示词 (System Prompt) <span class="required">*</span></label>
-                  <div class="textarea-wrapper">
-                    <textarea
-                      v-model="formData.systemPrompt"
-                      class="form-textarea large"
-                      rows="6"
-                      placeholder="你是谁？你的职责是什么？请详细描述..."
-                      required
-                    ></textarea>
-                    <div class="prompt-tip">💡 提示词决定了智能体的人设和回复风格。</div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- 第三部分：模型参数 -->
-              <div class="form-section">
-                <h3 class="section-title">模型参数</h3>
-                
-                <div class="form-group">
-                  <label class="form-label">模型选择</label>
-                  <div class="select-wrapper">
-                    <input
-                      type="text"
-                      v-model="formData.model"
-                      class="form-input"
-                      placeholder="默认模型 (例如: gpt-3.5-turbo)"
-                    />
-                  </div>
-                </div>
-
-                <div class="form-row">
-                  <div class="form-group half">
-                    <label class="form-label">
-                      随机性 (Temperature): {{ formData.temperature }}
-                    </label>
-                    <div class="range-container">
-                      <input
-                        type="range"
-                        v-model.number="formData.temperature"
-                        class="form-range"
-                        min="0"
-                        max="2"
-                        step="0.1"
-                      />
-                      <div class="range-labels">
-                        <span>0 (精确)</span>
-                        <span>2 (创造性)</span>
-                      </div>
-                    </div>
-                  </div>
-                  <div class="form-group half">
-                    <label class="form-label">最大 Token 数</label>
-                    <input
-                      type="number"
-                      v-model.number="formData.maxTokens"
-                      class="form-input"
-                      min="1"
-                      step="1"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <!-- 第四部分：可见性 (Toggle 开关) -->
-              <div class="form-section last">
-                <div class="toggle-group">
-                  <div class="toggle-label">
-                    <span class="main-text">公开智能体</span>
-                    <span class="sub-text">开启后，其他用户可以在市场中看到此智能体</span>
-                  </div>
-                  <label class="switch">
-                    <input type="checkbox" v-model="formData.isPublic">
-                    <span class="slider round"></span>
-                  </label>
                 </div>
               </div>
 
@@ -255,12 +177,8 @@ export default {
   computed: {
     isFormValid() {
       return (
-        this.formData.name &&
-        this.formData.name.trim() !== '' &&
         this.formData.description &&
-        this.formData.description.trim() !== '' &&
-        this.formData.systemPrompt &&
-        this.formData.systemPrompt.trim() !== ''
+        this.formData.description.trim() !== ''
       )
     }
   },
@@ -315,24 +233,26 @@ export default {
     },
     async handleSubmit() {
       if (!this.isFormValid) return
-      
       this.loading = true
       this.errorMessage = ''
-      
       try {
-        const requestData = {
-          name: this.formData.name.trim(),
-          description: this.formData.description.trim(),
-          systemPrompt: this.formData.systemPrompt.trim(),
-          category: this.formData.category.trim() || 'default',
-          model: this.formData.model.trim() || 'default-model',
-          temperature: this.formData.temperature,
-          maxTokens: this.formData.maxTokens,
-          avatar: this.formData.avatar.trim() || '',
-          isPublic: this.formData.isPublic
+        // Send message to /messages/send endpoint
+        const sendMessageData = {
+          conversationId: 1, // This should be replaced with actual conversation ID
+          userId: this.user?.id || 1, // Use actual user ID
+          messages: [
+            {
+              role: "system",
+              content: this.formData.systemPrompt || "",
+              name: this.formData.name || "",
+              tool_call_id: "",
+              to: "",
+              tool_calls: []
+            }
+          ]
         }
+        await api.conversation.sendMessage(sendMessageData)
         
-        await api.agent.updateAgent(this.agentId, requestData)
         this.$router.push('/home')
       } catch (error) {
         console.error(error)
@@ -574,7 +494,7 @@ input:checked + .slider:before { transform: translateX(22px); }
 
 .btn-submit {
   padding: 10px 32px; border-radius: 8px; background: var(--primary-color);
-  border: none; color: white; font-weight: 600; cursor: pointer;
+  border: none; color: black; font-weight: 600; cursor: pointer;
   transition: all 0.2s; box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.3);
 }
 .btn-submit:hover:not(:disabled) {

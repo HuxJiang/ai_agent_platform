@@ -80,19 +80,6 @@
               <p class="form-hint">简要描述智能体的功能和用途</p>
             </div>
 
-            <!-- 系统提示词 -->
-            <div class="form-group">
-              <label class="form-label">系统提示词 <span class="required">*</span></label>
-              <textarea
-                v-model="formData.systemPrompt"
-                class="form-textarea large"
-                rows="6"
-                placeholder="请输入系统提示词，用于指导智能体的行为和回答风格..."
-                required
-              ></textarea>
-              <p class="form-hint">系统提示词将指导智能体的行为和回答风格</p>
-            </div>
-
             <!-- 分类 -->
             <div class="form-group">
               <label class="form-label">分类</label>
@@ -105,47 +92,6 @@
               <p class="form-hint">为智能体设置分类标签，便于管理</p>
             </div>
 
-            <!-- 模型 -->
-            <div class="form-group">
-              <label class="form-label">模型</label>
-              <input
-                type="text"
-                v-model="formData.model"
-                class="form-input"
-                placeholder="例如：gpt-3.5-turbo、gpt-4等"
-              />
-              <p class="form-hint">指定智能体使用的AI模型</p>
-            </div>
-
-            <!-- 温度和最大Token数 -->
-            <div class="form-row">
-              <div class="form-group half">
-                <label class="form-label">温度 (Temperature)</label>
-                <input
-                  type="number"
-                  v-model.number="formData.temperature"
-                  class="form-input"
-                  min="0"
-                  max="2"
-                  step="0.1"
-                  placeholder="0.7"
-                />
-                <p class="form-hint">控制回答的随机性（0-2）</p>
-              </div>
-              <div class="form-group half">
-                <label class="form-label">最大Token数</label>
-                <input
-                  type="number"
-                  v-model.number="formData.maxTokens"
-                  class="form-input"
-                  min="1"
-                  step="1"
-                  placeholder="4096"
-                />
-                <p class="form-hint">单次回答的最大长度</p>
-              </div>
-            </div>
-
             <!-- 头像URL（可选） -->
             <div class="form-group">
               <label class="form-label">头像URL</label>
@@ -156,6 +102,19 @@
                 placeholder="https://example.com/avatar.jpg（可选）"
               />
               <p class="form-hint">智能体的头像图片链接，留空则使用默认头像</p>
+            </div>
+
+            <!-- URL -->
+            <div class="form-group">
+              <label class="form-label">URL <span class="required">*</span></label>
+              <input
+                type="text"
+                v-model="formData.url"
+                class="form-input"
+                placeholder="智能体的访问URL，例如：http://localhost:3000"
+                required
+              />
+              <p class="form-hint">智能体的访问URL地址</p>
             </div>
 
             <!-- 是否公开 -->
@@ -203,7 +162,7 @@
 </template>
 
 <script>
-import api from '../utils/api.js'
+import api, { authAPI } from '../utils/api.js'
 
 export default {
   name: 'AgentCreationView',
@@ -216,12 +175,9 @@ export default {
       formData: {
         name: '',
         description: '',
-        systemPrompt: '',
-        category: '',
-        model: '',
-        temperature: 0.7,
-        maxTokens: 4096,
         avatar: '',
+        category: '',
+        url: '',
         isPublic: false
       }
     }
@@ -234,8 +190,8 @@ export default {
         this.formData.name.trim() !== '' &&
         this.formData.description &&
         this.formData.description.trim() !== '' &&
-        this.formData.systemPrompt &&
-        this.formData.systemPrompt.trim() !== ''
+        this.formData.url &&
+        this.formData.url.trim() !== ''
       )
     }
   },
@@ -259,12 +215,12 @@ export default {
   methods: {
     // 获取用户信息
     getUserInfo() {
-      this.user = api.auth.getCurrentUser()
+      this.user = api.getUserInfo()
     },
     
     // 检查登录状态
     checkLoginStatus() {
-      if (!api.auth.isLoggedIn()) {
+      if (!authAPI.isLoggedIn()) {
         // 没有登录，跳转到登录页
         this.$router.push('/login')
       }
@@ -274,7 +230,7 @@ export default {
     async handleLogout() {
       try {
         // 使用API工具调用退出登录接口
-        await api.auth.logout()
+        await authAPI.logout()
       } catch (error) {
         console.error('退出登录失败:', error)
       } finally {
@@ -311,13 +267,13 @@ export default {
         const requestData = {
           name: this.formData.name.trim(),
           description: this.formData.description.trim(),
-          systemPrompt: this.formData.systemPrompt.trim(),
-          category: this.formData.category.trim() || 'default',
-          model: this.formData.model.trim() || 'default-model',
-          temperature: this.formData.temperature || 0.7,
-          maxTokens: this.formData.maxTokens || 4096,
           avatar: this.formData.avatar.trim() || '',
-          isPublic: this.formData.isPublic || false
+          category: this.formData.category.trim() || '',
+          url: this.formData.url.trim(),
+          connectType: 'stream-http', // 固定值
+          isTested: true, // 固定值
+          isPublic: this.formData.isPublic || false,
+          userId: this.user?.id || 1 // 从当前用户获取userId，默认1
         }
         
         // 调用创建智能体API

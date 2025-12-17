@@ -240,7 +240,15 @@ export default {
       if (confirm(`确定要删除智能体"${agent.name}"吗？此操作不可恢复。`)) {
         this.deletingAgentId = agent.id
         try {
-          await api.agent.deleteAgent(agent.id)
+          const user = await api.getUserInfo()
+          // 构建查询参数，包含type=admin、agentId和userId
+          const queryParams = {
+            type: 'admin',
+            agentId: agent.id,
+            userId: user.id
+          }
+          // 调用deleteAgent方法，只传递queryParams参数
+          await api.agent.deleteAgent(queryParams)
           await this.getAgentsList()
         } catch (error) {
           console.error('删除智能体失败:', error)
@@ -252,7 +260,7 @@ export default {
     },
     handleAgentChat(agent) {
       this.$router.push({
-        path: '/agents',
+        path: '/conversation',
         query: {
           agent_id: agent.id
         }
@@ -765,7 +773,7 @@ export default {
   border-radius: 8px;
   background: var(--primary-color);
   border: none;
-  color: white;
+  color: black;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s;

@@ -2,7 +2,6 @@ import { createRouter, createWebHistory } from 'vue-router'
 import LoginView from '../views/LoginView.vue'
 import RegisterView from '../views/RegisterView.vue'
 import HomeView from '../views/HomeView.vue'
-import AgentsView from '../views/AgentsView.vue'
 import AgentCreationView from '../views/AgentCreationView.vue'
 import AgentEditView from '../views/AgentEditView.vue'
 import WorkflowView from '../views/WorkflowView.vue'
@@ -53,14 +52,6 @@ const routes = [
     component: KnowledgeView,
     meta: {
       requiresAuth: true
-    }
-  },
-  {
-    path: '/agents',
-    name: 'Agents',
-    component: AgentsView,
-    meta: {
-      requiresAuth: true // 需要登录才能访问
     }
   },
   {

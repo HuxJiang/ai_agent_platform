@@ -13,9 +13,16 @@ export function getAccessToken() {
  */
 export async function fetchAPI(endpoint, options = {}) {
   const url = `${API_BASE_URL}${endpoint}`
-  const headers = {
-    'Content-Type': 'application/json',
-    ...options.headers
+  // 构建请求头：直接合并options.headers，不再做DELETE的特殊处理
+  const headers = { ...options.headers }
+  
+  // 【删除原有的DELETE请求头处理逻辑】
+  // 原逻辑：if (options.method !== 'DELETE' && options.body) { ... }
+  // 原逻辑：if (options.method === 'DELETE' && headers['Content-Type']) { delete ... }
+
+  // 补充：如果有请求体（非DELETE场景），默认设置Content-Type（保留原有非DELETE的逻辑）
+  if (options.body && !headers['Content-Type']) {
+    headers['Content-Type'] = 'application/json'
   }
 
   // 如果有访问令牌，则添加到请求头
@@ -123,13 +130,15 @@ export async function put(endpoint, data = {}) {
 
 /**
  * DELETE请求
+ * @param {string} endpoint - API端点
+ * @param {object} params - 查询参数
  */
-export async function del(endpoint, params = {}) {
-  // 构建查询字符串
-  const queryString = Object.keys(params)
-    .map(key => `${encodeURIComponent(key)}=${encodeURIComponent(params[key])}`)
+export async function del(endpoint, queryParams = {}) {
+  // 构建查询字符串（agentId和userId仍在queryString中）
+  const queryString = Object.keys(queryParams)
+    .map(key => `${encodeURIComponent(key)}=${encodeURIComponent(queryParams[key])}`)
     .join('&')
-
+  
   const separator = endpoint.includes('?') ? '&' : '?'
   const url = queryString ? `${endpoint}${separator}${queryString}` : endpoint
 

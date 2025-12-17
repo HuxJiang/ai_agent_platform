@@ -24,7 +24,7 @@ public class AgentController {
     private final IAgentService agentService;
 
     @Operation(summary = "创建智能体")
-    @PostMapping("/create_agent")
+    @PostMapping("/create")
     public ApiResponse<Void> create_agent(@Validated @RequestBody CreateAgentDto dto) {
         String token = TokenContext.getToken();
         agentService.create_agent(dto, token);
@@ -32,14 +32,14 @@ public class AgentController {
     }
 
     @Operation(summary = "更新智能体")
-    @PutMapping("/update_agent/{agentId}")
+    @PutMapping("/update/{agentId}")
     public ApiResponse<Void> update_agent(@Validated @RequestBody UpdateAgentDto dto, @PathVariable("agentId") Long agentId) {
         agentService.update_agent(dto, agentId);
         return ApiResponse.ok();
     }
 
     @Operation(summary = "删除智能体")
-    @DeleteMapping("/delete_agent/{agentId}")
+    @DeleteMapping("/delete/{agentId}")
     public ApiResponse<Void> delete_agent(@PathVariable("agentId") Long agentId) {
         agentService.delete_agent(agentId);
         return ApiResponse.ok();

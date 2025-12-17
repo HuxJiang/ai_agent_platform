@@ -41,13 +41,6 @@ export function removeUserInfo() {
  */
 export const authAPI = {
   /**
-   * 检查用户是否已登录
-   */
-  isLoggedIn() {
-    return !!localStorage.getItem('access_token')
-  },
-
-  /**
    * 用户登录
    */
   async login(username, password) {
