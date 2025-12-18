@@ -303,11 +303,39 @@ export default {
     // 选择会话
     async selectConversation(conversation) {
       this.currentConversation = conversation
-      // 可以在这里添加加载会话消息的逻辑
       this.messages = []
+      this.loading = true
+      
       // 更新当前智能体选择
       if (conversation.mainAgent) {
         this.selectedAgentId = conversation.mainAgent
+      }
+      
+      // 加载会话消息历史
+      await this.loadConversationMessages(conversation.id)
+      
+      this.loading = false
+    },
+    
+    // 加载会话消息历史
+    async loadConversationMessages(conversationId) {
+      try {
+        const response = await api.conversation.getConversationDetail({
+          conversationId,
+          userId: this.user.id
+        })
+        
+        if (response.code === 0 && response.data && response.data.messages) {
+          // 提取消息历史并格式化
+          this.messages = response.data.messages.map(msg => ({
+            role: msg.role,
+            content: msg.content,
+            createdAt: msg.createdAt || new Date().toISOString()
+          }))
+        }
+      } catch (error) {
+        console.error('加载会话消息失败:', error)
+        this.messages = []
       }
     },
     // 获取会话预览

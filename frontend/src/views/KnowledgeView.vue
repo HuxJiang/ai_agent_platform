@@ -153,15 +153,24 @@
                 <div class="result-item" v-for="(result, index) in searchResults" :key="index">
                   <div class="result-header">
                     <h4>{{ result.title || '无标题文档' }}</h4>
-                    <span class="score-badge" :class="{'high': result.score > 0.8, 'med': result.score > 0.5}">
-                      相似度: {{ (result.score || 0).toFixed(4) }}
+                    <span class="score-badge" :class="{'high': result.score_vec > 0.8, 'med': result.score_vec > 0.5}">
+                      相似度: {{ (result.score_vec || 0).toFixed(4) }}
                     </span>
                   </div>
                   <div class="result-meta">
                     <span class="tag">📂 {{ result.category || '未分类' }}</span>
+                    <span v-if="result.keywords" class="keywords-container">
+                      <span 
+                        v-for="(keyword, keyIndex) in result.keywords.split(',').map(k => k.trim()).filter(k => k)" 
+                        :key="keyIndex" 
+                        class="keyword-tag"
+                      >
+                        🔑 {{ keyword }}
+                      </span>
+                    </span>
                   </div>
                   <div class="result-content">
-                    <p>{{ result.text }}</p>
+                    <p>{{ result.content }}</p>
                   </div>
                 </div>
               </div>
@@ -482,7 +491,19 @@ export default {
         }
         this.getUserInfo()
         const response = await api.knowledge.search(this.searchForm)
-        this.searchResults = response.data || []
+        if (response.code === 0 && response.data) {
+          // 转换结果格式，确保字段名匹配
+          this.searchResults = response.data.map(item => ({
+            title: item.title,
+            content: item.content,
+            category: item.category,
+            keywords: item.keywords,
+            score: item.score_vec, // 映射后端的score_vec到前端的score
+            score_vec: item.score_vec // 保留原始字段用于显示
+          }))
+        } else {
+          this.searchResults = []
+        }
         this.closeModal()
       } catch (error) {
         console.error('向量检索失败:', error)
@@ -497,7 +518,19 @@ export default {
         }
         this.getUserInfo()
         const response = await api.knowledge.hybridSearch(this.hybridSearchForm)
-        this.searchResults = response.data || []
+        if (response.code === 0 && response.data) {
+          // 转换结果格式，确保字段名匹配
+          this.searchResults = response.data.map(item => ({
+            title: item.title,
+            content: item.content,
+            category: item.category,
+            keywords: item.keywords,
+            score: item.score_vec, // 映射后端的score_vec到前端的score
+            score_vec: item.score_vec // 保留原始字段用于显示
+          }))
+        } else {
+          this.searchResults = []
+        }
         this.closeModal()
       } catch (error) {
         console.error('混合检索失败:', error)
@@ -957,14 +990,51 @@ export default {
 .score-badge.high { background: #dcfce7; color: #166534; }
 .score-badge.med { background: #fef3c7; color: #92400e; }
 
-.result-meta { margin-bottom: 12px; }
+.result-meta { 
+  margin-bottom: 12px; 
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
 .result-meta .tag {
   font-size: 12px;
   color: #6b7280;
   background: #ffffff;
   border: 1px solid #e5e7eb;
-  padding: 2px 8px;
-  border-radius: 4px;
+  padding: 4px 10px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Keywords */
+.keywords-container {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.keyword-tag {
+  font-size: 12px;
+  color: #4f46e5;
+  background: #eef2ff;
+  border: 1px solid #ddd6fe;
+  padding: 4px 10px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.keyword-tag:hover {
+  background: #ede9fe;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(79, 70, 229, 0.1);
 }
 
 .result-content {

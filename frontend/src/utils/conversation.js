@@ -70,6 +70,18 @@ export const conversationAPI = {
   },
 
   /**
+   * 获取会话详情（包含消息历史）
+   * @param {Object} params - 查询参数
+   * @param {number} params.conversationId - 会话ID
+   * @param {number} params.userId - 用户ID
+   * @returns {Promise<Object>} 会话详情，包含消息历史
+   */
+  async getConversationDetail(params) {
+    const response = await get('/plugin/conversation/detail', params)
+    return response
+  },
+
+  /**
    * 发送消息
    * @param {Object} params - 发送消息的参数
    * @param {number} params.conversationId - 会话ID
