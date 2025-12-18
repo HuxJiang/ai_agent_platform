@@ -1,5 +1,5 @@
 // 导入必要的工具函数和请求方法
-import { get, post, del } from './user.js'
+import { get, post, del } from './http.js'
 
 /**
  * 智能体相关API
@@ -50,12 +50,10 @@ export const agentAPI = {
   /**
    * 删除智能体
    */
-  async deleteAgent(agentId, userId) {
+  async deleteAgent(queryParams) {
     try {
-      const response = await del('/plugin/agent/delete', {
-        agentId,
-        userId
-      })
+      // 调用del函数，传递endpoint和queryParams
+      const response = await del('/plugin/agent/delete', queryParams)
       return response
     } catch (error) {
       console.error('删除智能体失败:', error)
@@ -129,4 +127,5 @@ export const agentAPI = {
       throw error
     }
   }
+  
 }

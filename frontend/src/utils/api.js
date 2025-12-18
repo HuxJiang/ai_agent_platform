@@ -1,5 +1,6 @@
 // 从各个模块导入API
-import { authAPI, getAccessToken, setAccessToken, removeAccessToken, saveUserInfo, getUserInfo, removeUserInfo } from './user.js'
+import { authAPI, setAccessToken, removeAccessToken, saveUserInfo, getUserInfo, removeUserInfo } from './user.js'
+import { getAccessToken } from './http.js'
 import { agentAPI } from './agent.js'
 import { knowledgeAPI } from './knowledge.js'
 import { conversationAPI } from './conversation.js'

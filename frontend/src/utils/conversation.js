@@ -1,5 +1,5 @@
 // 导入基础HTTP请求方法
-import { get, post, put, del } from './user.js'
+import { get, post, put, del } from './http.js'
 
 /**
  * 会话相关API

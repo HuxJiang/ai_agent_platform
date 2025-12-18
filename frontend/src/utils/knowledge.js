@@ -1,5 +1,5 @@
 // 导入必要的工具函数和请求方法
-import { post } from './user.js'
+import { post } from './http.js'
 
 /**
  * 知识库相关API
@@ -79,6 +79,19 @@ export const knowledgeAPI = {
       return response
     } catch (error) {
       console.error('根据类别删除失败:', error)
+      throw error
+    }
+  },
+  
+  /**
+   * 获取用户向量库中的数据条数
+   */
+  async countVector(data) {
+    try {
+      const response = await post('/rag/count', data)
+      return response
+    } catch (error) {
+      console.error('获取向量库数据条数失败:', error)
       throw error
     }
   }
