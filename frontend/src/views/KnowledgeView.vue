@@ -490,16 +490,17 @@ export default {
           return
         }
         this.getUserInfo()
-        const response = await api.knowledge.search(this.searchForm)
-        if (response.code === 0 && response.data) {
-          // 转换结果格式，确保字段名匹配
-          this.searchResults = response.data.map(item => ({
+        const data = await api.knowledge.search(this.searchForm)
+        // fetchAPI 已经返回后端的 data 字段（或直接数组），兼容两种情况
+        const list = Array.isArray(data) ? data : (data && data.data ? data.data : [])
+        if (list && list.length) {
+          this.searchResults = list.map(item => ({
             title: item.title,
             content: item.content,
             category: item.category,
             keywords: item.keywords,
-            score: item.score_vec, // 映射后端的score_vec到前端的score
-            score_vec: item.score_vec // 保留原始字段用于显示
+            score: item.score_vec,
+            score_vec: item.score_vec
           }))
         } else {
           this.searchResults = []
@@ -517,16 +518,16 @@ export default {
           return
         }
         this.getUserInfo()
-        const response = await api.knowledge.hybridSearch(this.hybridSearchForm)
-        if (response.code === 0 && response.data) {
-          // 转换结果格式，确保字段名匹配
-          this.searchResults = response.data.map(item => ({
+        const data = await api.knowledge.hybridSearch(this.hybridSearchForm)
+        const list = Array.isArray(data) ? data : (data && data.data ? data.data : [])
+        if (list && list.length) {
+          this.searchResults = list.map(item => ({
             title: item.title,
             content: item.content,
             category: item.category,
             keywords: item.keywords,
-            score: item.score_vec, // 映射后端的score_vec到前端的score
-            score_vec: item.score_vec // 保留原始字段用于显示
+            score: item.score_vec,
+            score_vec: item.score_vec
           }))
         } else {
           this.searchResults = []
