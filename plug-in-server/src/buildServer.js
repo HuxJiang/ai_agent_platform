@@ -7,9 +7,15 @@ const mysqlPlugin = require('./plugins/mysql');
 const { registerRoutes } = require('./routes');
 
 const buildServer = ({ fastifyOptions } = {}) => {
+
   const app = fastifyFactory({
     logger: true,
     ...(fastifyOptions || {})
+  });
+
+  // 允许 application/octet-stream
+  app.addContentTypeParser('application/octet-stream', { parseAs: 'buffer' }, function (req, body, done) {
+    done(null, body);
   });
 
   app.register(registerCors, {

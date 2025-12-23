@@ -10,6 +10,7 @@ const mapAgentRow = (row) => ({
   connectType: row.connect_type,
   isTested: Number(row.is_tested) === 1,
   isPublic: Number(row.is_public) === 1,
+  favoriteCount: Number(row.favorite_count),
   createdAt: normalizeDate(row.created_at),
   updatedAt: normalizeDate(row.updated_at)
 });

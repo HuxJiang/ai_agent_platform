@@ -4,37 +4,37 @@
     <AppNavbar :user="user" @logout="handleLogout" />
 
     <div class="main-content">
-      <!-- 左侧菜单栏 -->
+      <!-- 左侧菜单栏 (保持与知识库页面一致) -->
       <AppSidebar />
 
       <!-- 主页内容 -->
       <main class="content">
         <div class="content-wrapper">
-          <!-- 欢迎区域 -->
-          <div class="welcome-section">
-            <div class="welcome-text">
-              <h2>早安，<span class="highlight">{{ user?.nickname || user?.username || '用户' }}</span> 👋</h2>
-              <p class="subtitle">准备好开始管理您的智能助手了吗？</p>
-            </div>
-            <div class="welcome-decoration">✨</div>
-          </div>
 
           <!-- 智能体列表 -->
           <div class="agents-section">
             <div class="section-header">
-              <h3>所有智能体</h3>
+              <h3>我的智能体</h3>
               <span class="badge">{{ agents.length }} 个活跃中</span>
             </div>
 
             <div class="agents-grid">
+              <!-- 添加智能体按钮 (放在第一个，方便操作) -->
+              <div class="agent-card add-card" @click="handleCreateAgent">
+                <div class="add-content">
+                  <div class="add-icon-circle">+</div>
+                  <span class="add-text">创建新智能体</span>
+                </div>
+              </div>
+
               <!-- 智能体循环 -->
               <div
                 v-for="agent in agents"
-                :key="agent"
+                :key="agent.id"
                 class="agent-card agent-item"
-
+                @click="handleAgentDetail(agent)"
               >
-                <div class="card-body" @click="handleAgentDetail(agent)">
+                <div class="card-body">
                   <div class="avatar-wrapper">
                     <img
                       :src="agent.avatar || 'https://via.placeholder.com/100'"
@@ -44,16 +44,33 @@
                     <div class="status-dot"></div>
                   </div>
                   <h4 class="agent-name" :title="agent.name">{{ agent.name }}</h4>
-                    <p class="agent-desc">❤️ {{ agent.favoriteCount }}</p>
-                    <p class="agent-desc">🕐 {{ new Date(agent.createdAt).toLocaleDateString() }}</p>
+                  <p class="agent-desc">点击查看详情</p>
                 </div>
 
                 <div class="card-footer">
                   <button
-                    class="btn-action btn-fav"
-                    @click="doFavorite(agent)">
-                    <span >☆ 收藏</span>
+                    v-if="agent.isOwner"
+                    class="btn-action btn-edit"
+                    @click.stop="handleUpdateAgent(agent)"
+                    title="配置"
+                  >
+                    ⚙️ 配置
                   </button>
+                  <button
+                    v-else
+                    class="btn-action btn-fav"
+                    @click.stop="unFavorite(agent)"
+                    title="取消收藏"
+                  >
+                    ★ 取消收藏
+                  </button>
+                  <!-- <button
+                    class="btn-action btn-del"
+                    @click.stop="handleDeleteAgent(agent)"
+                    title="删除"
+                  >
+                    🗑️
+                  </button> -->
                 </div>
               </div>
             </div>
@@ -61,14 +78,13 @@
         </div>
       </main>
     </div>
-
   </div>
 </template>
 
 <script>
-import AppNavbar from '../components/AppNavbar.vue';
-import AppSidebar from '../components/AppSidebar.vue';
-import api from '../utils/api.js';
+import AppNavbar from '../components/AppNavbar.vue'
+import AppSidebar from '../components/AppSidebar.vue'
+import api from '../utils/api.js'
 
 export default {
   name: 'HomeView',
@@ -83,6 +99,7 @@ export default {
     }
   },
   watch: {
+    // 自动聚焦输入框
     showCreateModal(val) {
       if (val) {
         this.$nextTick(() => {
@@ -97,70 +114,41 @@ export default {
     this.getAgentsList()
   },
   methods: {
-    async doFavorite(agent) {
-      try {
-        const userId = this.user?.id;
-        if (!userId) {
-          throw new Error('用户未登录');
-        }
-        await api.agent.favoriteAgent(agent.id, userId);
-        this.$message && this.$message.success
-          ? this.$message.success('收藏成功')
-          : alert('收藏成功');
-        await this.getAgentsList(); // Refresh the agents list after successful favorite
-      } catch (error) {
-        console.error('收藏失败:', error);
-        this.$message && this.$message.error
-          ? this.$message.error('收藏失败，请重试')
-          : alert('收藏失败，请重试');
-      }
-    },
     getUserInfo() {
-      this.user = api.auth.getCurrentUser();
+      this.user = api.auth.getCurrentUser()
     },
     checkLoginStatus() {
       if (!api.auth.isLoggedIn()) {
-        this.$router.push('/login');
+        this.$router.push('/login')
       }
     },
     async handleLogout() {
       try {
-        await api.auth.logout();
+        await api.auth.logout()
       } catch (error) {
-        console.error('退出登录失败:', error);
+        console.error('退出登录失败:', error)
       } finally {
-        this.$router.push('/login');
+        this.$router.push('/login')
       }
     },
     async getAgentsList() {
-      const token = this.$root.$options.api?.getAccessToken
-        ? this.$root.$options.api.getAccessToken()
-        : this.$api?.getAccessToken?.() || localStorage.getItem('access_token');
+      const token = this.$root.$options.api?.getAccessToken ? this.$root.$options.api.getAccessToken() : (this.$api?.getAccessToken?.() || localStorage.getItem('access_token'))
       if (!token) {
-        this.$router.push('/login');
-        return;
+        this.$router.push('/login')
+        return
       }
-      const page = this.page || 1;
-      const pageSize = this.pageSize || 20;
       try {
-        const response = await api.agent.getPublicAgentList({ page, pageSize });
-        this.agents = response.agents || [];
-        this.total = response.total || 0;
-        this.page = response.page || 1;
-        this.pageSize = response.pageSize || 20;
+        const response = await api.agent.getUserAgentList(this.user.id)
+        this.agents = response.agents || []
       } catch (error) {
-        console.error('获取智能体列表失败:', error);
-        this.agents = [];
+        console.error('获取智能体列表失败:', error)
+        this.agents = []
       }
     },
     handleCreateAgent() {
-      if (this.newAgentName.trim()) {
-        this.$router.push({
-          path: '/agent-create'
-        });
-        this.newAgentName = '';
-        this.showCreateModal = false;
-      }
+      this.$router.push({
+        path: '/agent-create',
+      });
     },
     handleUpdateAgent(agent) {
       this.$router.push({
@@ -168,7 +156,29 @@ export default {
         query: {
           agentData: JSON.stringify(agent)
         }
-             })
+      })
+    },
+    async handleDeleteAgent(agent) {
+      if (confirm(`确定要删除智能体"${agent.name}"吗？此操作不可恢复。`)) {
+        this.deletingAgentId = agent.id
+        try {
+          const user = await api.getUserInfo()
+          // 构建查询参数，包含type=admin、agentId和userId
+          const queryParams = {
+            type: 'admin',
+            agentId: agent.id,
+            userId: user.id
+          }
+          // 调用deleteAgent方法，只传递queryParams参数
+          await api.agent.deleteAgent(queryParams)
+          await this.getAgentsList()
+        } catch (error) {
+          console.error('删除智能体失败:', error)
+          alert('删除智能体失败，请稍后重试')
+        } finally {
+          this.deletingAgentId = null
+        }
+      }
     },
     handleAgentDetail(agent) {
             this.$router.push({
@@ -178,6 +188,17 @@ export default {
         }
              })
     },
+    // 收藏/取消收藏
+    async unFavorite(agent) {
+      // 直接取消收藏，无需判断 isFavorite 字段
+      try {
+        await api.agent.unfavoriteAgent(agent.id, this.user.id);
+        // 从本地列表移除该 agent
+        this.agents = this.agents.filter(a => a.id !== agent.id);
+      } catch (e) {
+        this.$message && this.$message.error ? this.$message.error('操作失败，请重试') : alert('操作失败，请重试');
+      }
+    }
   }
 }
 </script>
@@ -443,7 +464,7 @@ export default {
   transition: all 0.3s ease;
   overflow: hidden;
   position: relative;
-  height: 280px;
+  height: 260px; /* 固定高度确保整齐 */
 }
 
 .agent-card:hover {

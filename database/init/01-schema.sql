@@ -95,6 +95,7 @@ CREATE TABLE IF NOT EXISTS `agent` (
   `connect_type` ENUM('stream-http','sse') DEFAULT 'stream-http' COMMENT '连接方式',
   `is_tested` TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否通过测试，1=是，0=否',
   `is_public` TINYINT(1) DEFAULT 0 COMMENT '是否公开，0=私有，1=公开',
+  `favorite_count` INT NOT NULL DEFAULT 0 COMMENT '收藏量',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   PRIMARY KEY (`id`),

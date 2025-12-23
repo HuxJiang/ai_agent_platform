@@ -5,7 +5,7 @@
       <div class="navbar-brand">
         <h1 class="brand-name">智能体管理系统</h1>
       </div>
-      
+
       <div class="navbar-user">
         <div class="user-info">
           <span class="username">{{ user?.nickname || user?.username || '用户' }}</span>
@@ -15,35 +15,10 @@
         </button>
       </div>
     </header>
-    
-    <div class="main-content">
-      <!-- 左侧菜单栏 -->
-      <aside class="sidebar">
-        <nav class="menu">
-          <ul class="menu-list">
-            <li class="menu-item">
-              <router-link to="/home" class="menu-link" active-class="active">
-                <span class="menu-icon">🏠</span>
-                <span class="menu-text">主页</span>
-              </router-link>
-            </li>
 
-            <li class="menu-item">
-              <router-link to="/workflow" class="menu-link" active-class="active">
-                <span class="menu-icon">🔄</span>
-                <span class="menu-text">工作流</span>
-              </router-link>
-            </li>
-            <li class="menu-item">
-              <router-link to="/knowledge" class="menu-link" active-class="active">
-                <span class="menu-icon">📚</span>
-                <span class="menu-text">知识库</span>
-              </router-link>
-            </li>
-          </ul>
-        </nav>
-      </aside>
-      
+    <div class="main-content">
+        <AppSidebar />
+
       <!-- 智能体创建页面内容 -->
       <main class="content">
         <div class="creation-section">
@@ -53,18 +28,17 @@
           </div>
 
           <form @submit.prevent="handleSubmit" class="agent-form">
-            <!-- 智能体名称（只读显示） -->
+            <!-- 智能体名称 -->
             <div class="form-group">
               <label class="form-label">智能体名称 <span class="required">*</span></label>
               <input
                 type="text"
                 v-model="formData.name"
                 class="form-input"
-                readonly
-                disabled
-                placeholder="智能体名称"
+                placeholder="请输入智能体名称"
+                required
               />
-              <p class="form-hint">此名称已在主页设置</p>
+              <p class="form-hint">请输入智能体的名称</p>
             </div>
 
             <!-- 描述 -->
@@ -82,12 +56,13 @@
 
             <!-- 分类 -->
             <div class="form-group">
-              <label class="form-label">分类</label>
+              <label class="form-label">分类 <span class="required">*</span></label>
               <input
                 type="text"
                 v-model="formData.category"
                 class="form-input"
                 placeholder="例如：助手、客服、教育等"
+                required
               />
               <p class="form-hint">为智能体设置分类标签，便于管理</p>
             </div>
@@ -115,6 +90,33 @@
                 required
               />
               <p class="form-hint">智能体的访问URL地址</p>
+            </div>
+
+            <!-- 连接类型 -->
+            <div class="form-group">
+              <label class="form-label">连接类型</label>
+              <select
+                v-model="formData.connectType"
+                class="form-input"
+              >
+                <option value="">请选择连接类型</option>
+                <option value="stream-http">Stream HTTP</option>
+                <option value="sse">Server-Sent Events (SSE)</option>
+              </select>
+              <p class="form-hint">智能体的连接方式，默认为Stream HTTP</p>
+            </div>
+
+            <!-- 是否已测试 -->
+            <div class="form-group">
+              <label class="form-label checkbox-label">
+                <input
+                  type="checkbox"
+                  v-model="formData.isTested"
+                  class="form-checkbox"
+                />
+                <span>已测试</span>
+              </label>
+              <p class="form-hint">标记智能体是否已经过测试验证</p>
             </div>
 
             <!-- 是否公开 -->
@@ -169,7 +171,6 @@ export default {
   data() {
     return {
       user: null,
-      agentName: '',
       loading: false,
       errorMessage: '',
       formData: {
@@ -178,6 +179,8 @@ export default {
         avatar: '',
         category: '',
         url: '',
+        connectType: 'stream-http',
+        isTested: true,
         isPublic: false
       }
     }
@@ -190,6 +193,8 @@ export default {
         this.formData.name.trim() !== '' &&
         this.formData.description &&
         this.formData.description.trim() !== '' &&
+        this.formData.category &&
+        this.formData.category.trim() !== '' &&
         this.formData.url &&
         this.formData.url.trim() !== ''
       )
@@ -198,26 +203,16 @@ export default {
   mounted() {
     // 获取用户信息
     this.getUserInfo()
-    
+
     // 检查登录状态
     this.checkLoginStatus()
-    
-    // 获取URL参数中的智能体名称
-    const nameFromQuery = this.$route.query.name || ''
-    this.agentName = nameFromQuery
-    this.formData.name = nameFromQuery
-    
-    // 如果没有名称，提示并返回
-    if (!nameFromQuery) {
-      this.errorMessage = '缺少智能体名称，请返回主页重新创建'
-    }
   },
   methods: {
     // 获取用户信息
     getUserInfo() {
       this.user = api.getUserInfo()
     },
-    
+
     // 检查登录状态
     checkLoginStatus() {
       if (!authAPI.isLoggedIn()) {
@@ -225,7 +220,7 @@ export default {
         this.$router.push('/login')
       }
     },
-    
+
     // 处理退出登录
     async handleLogout() {
       try {
@@ -238,7 +233,7 @@ export default {
         this.$router.push('/login')
       }
     },
-    
+
     // 处理表单提交
     async handleSubmit() {
       // 验证表单
@@ -246,22 +241,10 @@ export default {
         this.errorMessage = '请填写所有必填字段'
         return
       }
-      
-      // 验证温度范围
-      if (this.formData.temperature < 0 || this.formData.temperature > 2) {
-        this.errorMessage = '温度值必须在0-2之间'
-        return
-      }
-      
-      // 验证最大Token数
-      if (this.formData.maxTokens && this.formData.maxTokens < 1) {
-        this.errorMessage = '最大Token数必须大于0'
-        return
-      }
-      
+
       this.loading = true
       this.errorMessage = ''
-      
+
       try {
         // 准备请求数据
         const requestData = {
@@ -270,15 +253,15 @@ export default {
           avatar: this.formData.avatar.trim() || '',
           category: this.formData.category.trim() || '',
           url: this.formData.url.trim(),
-          connectType: 'stream-http', // 固定值
-          isTested: true, // 固定值
+          connectType: this.formData.connectType || 'stream-http',
+          isTested: this.formData.isTested || true,
           isPublic: this.formData.isPublic || false,
           userId: this.user?.id || 1 // 从当前用户获取userId，默认1
         }
-        
+
         // 调用创建智能体API
         await api.agent.createAgent(requestData)
-        
+
         // 创建成功，跳转回主页
         this.$router.push('/home').catch(err => {
           // 如果路由跳转失败（比如已经跳转了），忽略错误
@@ -293,7 +276,7 @@ export default {
         this.loading = false
       }
     },
-    
+
     // 处理取消
     handleCancel() {
       // 确认是否取消
@@ -498,7 +481,8 @@ export default {
 }
 
 .form-input,
-.form-textarea {
+.form-textarea,
+select.form-input {
   padding: 10px 12px;
   border: 1px solid #e2e8f0;
   border-radius: 6px;
@@ -510,13 +494,15 @@ export default {
 }
 
 .form-input:focus,
-.form-textarea:focus {
+.form-textarea:focus,
+select.form-input:focus {
   outline: none;
   border-color: #667eea;
   box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
-.form-input:disabled {
+.form-input:disabled,
+select.form-input:disabled {
   background-color: #f7fafc;
   color: #718096;
   cursor: not-allowed;
@@ -611,20 +597,20 @@ export default {
   .creation-section {
     padding: 24px;
   }
-  
+
   .form-row {
     flex-direction: column;
     gap: 24px;
   }
-  
+
   .form-group.half {
     flex: 1;
   }
-  
+
   .form-actions {
     flex-direction: column-reverse;
   }
-  
+
   .btn {
     width: 100%;
   }

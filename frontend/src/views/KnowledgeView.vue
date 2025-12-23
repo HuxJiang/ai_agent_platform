@@ -1,57 +1,11 @@
 <template>
   <div class="knowledge-container">
-    <!-- 导航栏 -->
-    <header class="navbar">
-      <div class="navbar-brand">
-        <div class="logo-icon">🤖</div>
-        <h1 class="brand-name">智能体管理系统</h1>
-      </div>
-      
-      <div class="navbar-user">
-        <div class="user-info">
-          <span class="avatar">{{ user?.nickname?.[0] || user?.username?.[0] || 'U' }}</span>
-          <span class="username">{{ user?.nickname || user?.username || '用户' }}</span>
-        </div>
-        <button class="btn-logout" @click="handleLogout" title="退出登录">
-          <span class="icon">⏻</span>
-        </button>
-      </div>
-    </header>
-    
+    <AppNavbar :user="user" @logout="handleLogout" />
+
     <div class="main-content">
       <!-- 左侧菜单栏 -->
-      <aside class="sidebar">
-        <nav class="menu">
-          <ul class="menu-list">
-            <li class="menu-item">
-              <router-link to="/home" class="menu-link" active-class="active">
-                <span class="menu-icon">🏠</span>
-                <span class="menu-text">主页</span>
-              </router-link>
-            </li>
+      <AppSidebar />
 
-            <li class="menu-item">
-              <router-link to="/workflow" class="menu-link" active-class="active">
-                <span class="menu-icon">🔄</span>
-                <span class="menu-text">工作流</span>
-              </router-link>
-            </li>
-            <li class="menu-item">
-              <router-link to="/knowledge" class="menu-link" active-class="active">
-                <span class="menu-icon">📚</span>
-                <span class="menu-text">知识库</span>
-              </router-link>
-            </li>
-            <li class="menu-item">
-              <router-link to="/conversation" class="menu-link" active-class="active">
-                <span class="menu-icon">💬</span>
-                <span class="menu-text">会话管理</span>
-              </router-link>
-            </li>
-          </ul>
-        </nav>
-      </aside>
-      
       <!-- 知识库页面内容 -->
       <main class="content">
         <div class="knowledge-section">
@@ -59,10 +13,10 @@
             <h2>知识库管理</h2>
             <p class="subtitle">管理您的向量数据、同步文档及执行混合检索</p>
           </div>
-          
+
           <!-- 功能卡片网格布局 -->
           <div class="dashboard-grid">
-            
+
             <!-- 1. 知识导入模块 -->
             <div class="module-card import-card">
               <div class="card-header">
@@ -81,7 +35,7 @@
                 </button>
               </div>
             </div>
-            
+
             <!-- 2. 知识检索模块 -->
             <div class="module-card search-card">
               <div class="card-header">
@@ -100,7 +54,7 @@
                 </button>
               </div>
             </div>
-            
+
             <!-- 3. 向量库计数模块 -->
             <div class="module-card stat-card">
               <div class="card-header">
@@ -141,7 +95,7 @@
               </div>
             </div>
           </div>
-          
+
           <!-- 检索结果部分 -->
           <transition name="slide-up">
             <div class="results-section" v-if="searchResults.length > 0">
@@ -160,9 +114,9 @@
                   <div class="result-meta">
                     <span class="tag">📂 {{ result.category || '未分类' }}</span>
                     <span v-if="result.keywords" class="keywords-container">
-                      <span 
-                        v-for="(keyword, keyIndex) in result.keywords.split(',').map(k => k.trim()).filter(k => k)" 
-                        :key="keyIndex" 
+                      <span
+                        v-for="(keyword, keyIndex) in result.keywords.split(',').map(k => k.trim()).filter(k => k)"
+                        :key="keyIndex"
                         class="keyword-tag"
                       >
                         🔑 {{ keyword }}
@@ -179,7 +133,7 @@
         </div>
       </main>
     </div>
-    
+
     <!-- 弹窗组件 -->
     <transition name="modal-fade">
       <div v-if="currentModal" class="modal-overlay" @click="closeModal">
@@ -188,7 +142,7 @@
             <h3>{{ modalTitles[currentModal] }}</h3>
             <button class="btn-close" @click="closeModal">&times;</button>
           </div>
-          
+
           <div class="modal-body">
             <!-- 原始文本导入 -->
             <div v-if="currentModal === 'rawImport'">
@@ -224,7 +178,7 @@
                 <button class="btn-submit" @click="handleRawImport">开始导入</button>
               </div>
             </div>
-            
+
             <!-- 数据库同步 -->
             <div v-if="currentModal === 'dbSync'">
               <div class="form-group">
@@ -236,7 +190,7 @@
                 <button class="btn-submit" @click="handleDbSync">同步数据</button>
               </div>
             </div>
-            
+
             <!-- 向量检索 -->
             <div v-if="currentModal === 'vectorSearch'">
               <div class="form-group">
@@ -260,7 +214,7 @@
                 <button class="btn-submit" @click="handleVectorSearch">开始检索</button>
               </div>
             </div>
-            
+
             <!-- 混合检索 -->
             <div v-if="currentModal === 'hybridSearch'">
               <div class="form-group">
@@ -291,7 +245,7 @@
                 <button class="btn-submit" @click="handleHybridSearch">执行混合检索</button>
               </div>
             </div>
-            
+
             <!-- 根据标题删除 -->
             <div v-if="currentModal === 'deleteByTitle'">
               <div class="form-group">
@@ -302,7 +256,7 @@
                 <button class="btn-submit btn-delete" @click="handleDeleteByTitle">确认删除</button>
               </div>
             </div>
-            
+
             <!-- 根据类别删除 -->
             <div v-if="currentModal === 'deleteByCategory'">
               <div class="form-group">
@@ -316,7 +270,7 @@
                 <button class="btn-submit btn-delete" @click="handleDeleteByCategory">确认清空类别</button>
               </div>
             </div>
-            
+
             <!-- 根据类别计数 -->
             <div v-if="currentModal === 'countByCategory'">
               <div class="form-group">
@@ -336,10 +290,13 @@
 
 <script>
 // 脚本逻辑保持不变
+import AppNavbar from '../components/AppNavbar.vue'
+import AppSidebar from '../components/AppSidebar.vue'
 import api from '../utils/api.js'
 
 export default {
   name: 'KnowledgeView',
+  components: { AppNavbar, AppSidebar },
   data() {
     return {
       user: null,
@@ -991,8 +948,8 @@ export default {
 .score-badge.high { background: #dcfce7; color: #166534; }
 .score-badge.med { background: #fef3c7; color: #92400e; }
 
-.result-meta { 
-  margin-bottom: 12px; 
+.result-meta {
+  margin-bottom: 12px;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -1109,7 +1066,7 @@ export default {
   margin-bottom: 8px;
 }
 
-.form-group input, 
+.form-group input,
 .form-group textarea {
   width: 100%;
   padding: 10px 12px;
@@ -1165,15 +1122,15 @@ export default {
   margin-left: -24px;
   margin-right: -24px;
   margin-bottom: -24px;
-  
+
   /* 增加背景色和边框，形成独立操作栏 */
   padding: 16px 24px;
-  background-color: #f9fafb; 
+  background-color: #f9fafb;
   border-top: 1px solid #e5e7eb;
-  
+
   display: flex;
   justify-content: flex-end;
-  
+
   /* 保持圆角 */
   border-bottom-left-radius: 20px;
   border-bottom-right-radius: 20px;
@@ -1190,24 +1147,24 @@ export default {
   cursor: pointer;
   transition: all 0.2s;
   min-width: 120px; /* 保证最小宽度 */
-  
+
   /* 增加投影，提升对比度 */
   box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.3), 0 2px 4px -1px rgba(79, 70, 229, 0.1);
 }
 
-.btn-submit:hover { 
-  background-color: var(--primary-hover); 
+.btn-submit:hover {
+  background-color: var(--primary-hover);
   transform: translateY(-1px);
   box-shadow: 0 6px 10px -1px rgba(79, 70, 229, 0.4);
 }
 
-.btn-delete { 
+.btn-delete {
   background-color: var(--danger-color);
   /* 危险按钮也增加红色投影 */
   box-shadow: 0 4px 6px -1px rgba(239, 68, 68, 0.3);
 }
 
-.btn-delete:hover { 
+.btn-delete:hover {
   background-color: #dc2626;
   box-shadow: 0 6px 10px -1px rgba(239, 68, 68, 0.4);
 }
@@ -1229,7 +1186,7 @@ export default {
   .navbar { padding: 0 16px; }
   .content { padding: 20px; }
   .sidebar { display: none; }
-  
+
   /* 移动端弹窗 Footer 适配 */
   .modal-footer {
     flex-direction: column;

@@ -550,10 +550,25 @@ module.exports = async function agentRoute(fastify, opts = {}) {
           return reply.sendError('Agent not found', 404);
         }
 
+      const [existing] = await fastify.mysql.query(
+        'SELECT COUNT(*) as count FROM user_agent WHERE user_id = ? AND agent_id = ?',
+        [userId, agentId]
+      );
+
+      if (existing.count === 0) {
+        // 记录不存在，插入新记录并增加收藏量
         await fastify.mysql.query(
-          'INSERT INTO user_agent (user_id, agent_id, is_owner) VALUES (?, ?, 0) ON DUPLICATE KEY UPDATE is_owner = IF(is_owner = 1, 1, VALUES(is_owner))',
+          'INSERT INTO user_agent (user_id, agent_id, is_owner) VALUES (?, ?, 0)',
           [userId, agentId]
         );
+        await fastify.mysql.query(
+          'UPDATE agent SET favorite_count = favorite_count + 1 WHERE id = ? AND favorite_count >= 0',
+          [agentId]
+        );
+      } else {
+        // 记录已存在，不增加收藏量
+        console.log('记录已存在，不增加收藏量');
+      }
 
         return reply.sendSuccess(
           {
@@ -650,6 +665,11 @@ module.exports = async function agentRoute(fastify, opts = {}) {
         if (affectedRows === 0) {
           return reply.sendError('Favorite relationship not found', 404);
         }
+        if (affectedRows === 1)
+          await fastify.mysql.query(
+            'UPDATE agent SET favorite_count = GREATEST(favorite_count - 1, 0) WHERE id = ?',
+            [agentId]
+          );
 
         return reply.sendSuccess(
           {
@@ -697,6 +717,7 @@ module.exports = async function agentRoute(fastify, opts = {}) {
                           url: { type: ['string', 'null'] },
                           connectType: { type: 'string' },
                           isTested: { type: 'boolean' },
+                          favoriteCount: { type: 'integer' },
                           createdAt: { type: ['string', 'null'], format: 'date-time' },
                           updatedAt: { type: ['string', 'null'], format: 'date-time' }
                         }
@@ -718,7 +739,7 @@ module.exports = async function agentRoute(fastify, opts = {}) {
 
       try {
         const rows = await fastify.mysql.query(
-          'SELECT id, name, description, avatar, category, url, connect_type, is_tested, is_public, created_at, updated_at FROM agent WHERE is_public = 1 ORDER BY updated_at DESC'
+          'SELECT id, name, description, avatar, category, url, connect_type, is_tested, is_public, favorite_count, created_at, updated_at FROM agent WHERE is_public = 1 ORDER BY updated_at DESC'
         );
 
         const agents = Array.isArray(rows) ? rows.map((row) => mapAgentRow(row)) : [];

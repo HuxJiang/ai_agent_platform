@@ -5,8 +5,10 @@ import HomeView from '../views/HomeView.vue'
 import AgentCreationView from '../views/AgentCreationView.vue'
 import AgentEditView from '../views/AgentEditView.vue'
 import WorkflowView from '../views/WorkflowView.vue'
+import MyMCPView from '../views/MyMCPView.vue'
 import KnowledgeView from '../views/KnowledgeView.vue'
 import ConversationView from '../views/ConversationView.vue'
+import AgentDetailView from '../views/AgentDetailView.vue'
 
 const routes = [
   {
@@ -37,7 +39,14 @@ const routes = [
       requiresAuth: true // 需要登录才能访问
     }
   },
-
+    {
+    path: '/mymcp',
+    name: 'MyMCP',
+    component: MyMCPView,
+    meta: {
+      requiresAuth: true
+    }
+  },
   {
     path: '/workflow',
     name: 'Workflow',
@@ -55,7 +64,7 @@ const routes = [
     }
   },
   {
-    path: '/agents/creation',
+    path: '/agent-create',
     name: 'AgentCreation',
     component: AgentCreationView,
     meta: {
@@ -79,6 +88,14 @@ const routes = [
     }
   },
   {
+    path: '/agent-detail',
+    name: 'AgentDetail',
+    component: AgentDetailView,
+    meta: {
+      requiresAuth: true // 需要登录才能访问
+    }
+  },
+  {
     // 捕获所有未匹配的路由
     path: '/:pathMatch(.*)*',
     redirect: '/login'
@@ -94,11 +111,11 @@ const router = createRouter({
 router.beforeEach((to, from, next) => {
   const isAuthenticated = localStorage.getItem('access_token') !== null
   const requiresAuth = to.matched.some(record => record.meta.requiresAuth)
-  
+
   // 如果页面需要登录且用户未登录，则重定向到登录页
   if (requiresAuth && !isAuthenticated) {
     next('/login')
-  } 
+  }
   // 如果用户已登录且尝试访问登录页或注册页，则重定向到首页
   else if (isAuthenticated && (to.name === 'Login' || to.name === 'Register')) {
     next('/home')

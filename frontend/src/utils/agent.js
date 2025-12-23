@@ -8,16 +8,16 @@ export const agentAPI = {
   /**
    * 获取公开智能体列表
    */
-  async getPublicAgentList() {
+  async getPublicAgentList(params = {}) {
     try {
-      const response = await get('/plugin/agent/public')
-      return response
+      const response = await get('/plugin/agent/public', params);
+      return response;
     } catch (error) {
-      console.error('获取公开智能体列表失败:', error)
-      throw error
+      console.error('获取公开智能体列表失败:', error);
+      throw error;
     }
   },
-  
+
   /**
    * 获取用户关联智能体列表
    */
@@ -33,7 +33,7 @@ export const agentAPI = {
       throw error
     }
   },
-  
+
   /**
    * 创建智能体
    */
@@ -46,7 +46,7 @@ export const agentAPI = {
       throw error
     }
   },
-  
+
   /**
    * 删除智能体
    */
@@ -60,7 +60,7 @@ export const agentAPI = {
       throw error
     }
   },
-  
+
   /**
    * 标记智能体已测试
    */
@@ -77,7 +77,7 @@ export const agentAPI = {
       throw error
     }
   },
-  
+
   /**
    * 发布/下架智能体
    */
@@ -94,7 +94,7 @@ export const agentAPI = {
       throw error
     }
   },
-  
+
   /**
    * 收藏智能体
    */
@@ -111,7 +111,7 @@ export const agentAPI = {
       throw error
     }
   },
-  
+
   /**
    * 取消收藏智能体
    */
@@ -127,5 +127,5 @@ export const agentAPI = {
       throw error
     }
   }
-  
+
 }

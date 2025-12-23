@@ -10,10 +10,10 @@ INSERT INTO `user` (`id`, `username`, `password`, `nickname`, `email`, `phone`, 
 (2, 'testuser02', '$2a$10$OWVx3PwZM0vu0lkJjEHPZuLqBJAY7jaDRqSaWNhtLiRI//LKP3vyu', 'testuser02', '3877612901@qq.com', NULL, 'https://example.com/avatar.jpg', NULL, NULL, 1, '2025-11-23 15:38:50', '2025-11-20 13:56:00', '2025-11-23 15:38:50', 0);
 
 -- 插入测试Agent
-INSERT INTO `agent` (`id`, `name`, `description`, `avatar`, `category`, `url`, `connect_type`, `is_tested`, `is_public`, `created_at`, `updated_at`) VALUES
-(1, 'deepseek-chat', '本工具用于实现用户聊天，调用deepseek-chat模型', 'https://example.com/avatar.jpg', 'chat-model', 'http://localhost:3100/mcp', 'stream-http', 1, 1, '2025-11-20 15:45:52', '2025-11-20 18:30:59'),
-(2, '12306-MCP', '12306火车订票助手', 'https://example.com/avatar.jpg', 'tool', 'https://mcp.api-inference.modelscope.net/b10c754510f74a/mcp', 'stream-http', 1, 1, '2025-11-20 15:48:03', '2025-11-20 15:48:03'),
-(3, 'sensor-MCP', '传感器控制助手', 'https://example.com/avatar.jpg', 'tool', 'http://localhost:3200/mcp', 'stream-http', 1, 1, '2025-11-19 17:48:03', '2025-11-20 12:48:03');
+INSERT INTO `agent` (`id`, `name`, `description`, `avatar`, `category`, `url`, `connect_type`, `is_tested`, `is_public`, `favorite_count`, `created_at`, `updated_at`) VALUES
+(1, 'deepseek-chat', '本工具用于实现用户聊天，调用deepseek-chat模型', 'https://is1-ssl.mzstatic.com/image/thumb/PurpleSource211/v4/b0/89/12/b0891291-bdf3-7a05-8038-a9f5922a135e/Placeholder.mill/400x400bb-75.webp', 'chat-model', 'http://localhost:3100/mcp', 'stream-http', 1, 1, 0, '2025-11-20 15:45:52', '2025-11-20 18:30:59'),
+(2, '12306-MCP', '12306火车订票助手', 'https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/43/5e/ac/435eaceb-0c86-383c-c262-2e9a405c8ecf/AppIcon-0-0-1x_U007emarketing-0-9-0-0-85-220.png/400x400ia-75.webp', 'tool', 'https://mcp.api-inference.modelscope.net/b10c754510f74a/mcp', 'stream-http', 1, 1, 0, '2025-11-20 15:48:03', '2025-11-20 15:48:03'),
+(3, 'sensor-MCP', '传感器控制助手', 'https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/58/90/50/58905051-bc9a-62d1-a5c9-a7809c9892a6/AppIcon-0-0-1x_U007emarketing-0-11-0-85-220.png/400x400ia-75.webp', 'tool', 'http://localhost:3200/mcp', 'stream-http', 1, 1, 0, '2025-11-19 17:48:03', '2025-11-20 12:48:03');
 
 INSERT INTO `user_agent` (`id`, `user_id`, `agent_id`, `is_owner`, `created_at`, `updated_at`) VALUES
 (1, 1, 1, 1, '2025-11-20 15:45:52', '2025-11-20 18:30:59'),
