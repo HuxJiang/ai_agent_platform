@@ -14,7 +14,7 @@
           <div class="welcome-section">
             <div class="welcome-text">
               <h2>早安，<span class="highlight">{{ user?.nickname || user?.username || '用户' }}</span> 👋</h2>
-              <p class="subtitle">准备好开始管理您的智能助手了吗？</p>
+              <p class="subtitle">欢迎来到MCP广场</p>
             </div>
             <div class="welcome-decoration">✨</div>
           </div>
