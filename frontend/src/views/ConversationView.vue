@@ -205,41 +205,28 @@
 
             <div class="form-section">
               <h4 class="section-title">
-                <span class="section-icon">⚒️</span> 插件配置
+                <span class="section-icon">⚒️</span> 插件选择
               </h4>
               <div class="form-group">
-                <label class="form-label">
-                  <span class="label-icon">🔗</span> 关联插件
-                </label>
                 <div class="agent-selection-card">
-                  <div class="agent-card-header">
-                    <span class="agent-card-title">已选插件</span>
-                    <span class="agent-card-count" v-if="conversationSettings.agentIds.length > 1">
-                      {{ conversationSettings.agentIds.length }} 个
-                    </span>
-                  </div>
+
                   <div class="agent-card-body">
-                    <div v-if="conversationSettings.agentIds.length === 1" class="no-agents-selected">
+                    <div v-if="tools_list.length === 0" class="no-agents-available">
                       <span class="no-agents-icon">⚒️</span>
-                      <p>尚未选择任何插件</p>
-                      <small>点击下方按钮添加插件</small>
+                      <p>暂无可用插件</p>
                     </div>
-                    <div v-else class="selected-agents-list">
-                      <div class="selected-agent-item" v-for="agentId in conversationSettings.agentIds" :key="agentId">
-                        <span class="agent-avatar">⚒️</span>
-                        <span class="agent-name">
-                          {{ getAgentById(agentId)?.name || `插件 ${agentId}` }}
-                        </span>
-                        <button class="remove-agent-btn" @click="removeAgent(agentId)" title="移除">
-                          ×
-                        </button>
+                    <div v-else class="tools-list">
+                      <div class="tool-item" v-for="tool in tools_list" :key="tool.id">
+                        <label>
+                          <input
+                            type="checkbox"
+                            :value="tool.id"
+                            v-model="conversationSettings.agentIds"
+                          />
+                          {{ tool.name }}
+                        </label>
                       </div>
                     </div>
-                  </div>
-                  <div class="agent-card-footer">
-                    <button type="button" class="btn-add-agents" @click="openAgentSelection">
-                      <span class="btn-icon">+</span> 添加插件
-                    </button>
                   </div>
                 </div>
               </div>
@@ -395,7 +382,7 @@ export default {
       user: null,
       agents: [],
       chat_model: [], // List for chat models
-      tools: [], // List for tools
+      tools_list: [], // List for tools
       selectedAgentId: null,
       urlAgentId: null,
       currentConversation: null,
@@ -478,7 +465,10 @@ export default {
 
         // Categorize agents into chat_model and tools
         this.chat_model = this.agents.filter(agent => agent.category === 'chat-model');
-        this.tools = this.agents.filter(agent => agent.category === 'tool');
+        this.tools_list = this.agents.filter(agent => agent.category === 'tool');
+
+        // Log tools_list to the console
+        console.log('Tools List:', this.tools_list);
 
         if (this.chat_model.length > 0) {
           // 优先使用URL参数中的agent_id，否则使用第一个智能体
@@ -796,14 +786,6 @@ export default {
         this.loading = false
       }
     },
-    // 打开智能体选择
-    openAgentSelection() {
-      // 这里可以扩展为打开智能体选择对话框
-      // 暂时简单地将当前选中的智能体添加到列表中
-      if (this.selectedAgentId && !this.conversationSettings.agentIds.includes(this.selectedAgentId)) {
-        this.conversationSettings.agentIds.push(this.selectedAgentId)
-      }
-    },
     // 修改createNewConversation方法，改为打开参数设置对话框
     async createNewConversation() {
       if (!this.user || !this.selectedAgentId) return
@@ -886,7 +868,7 @@ export default {
           temperature: this.conversationSettings.temperature,
           maxTokens: this.conversationSettings.maxTokens,
           mainAgent: mainAgentId,
-          agentIds: this.conversationSettings.agentIds.length > 0 ? this.conversationSettings.agentIds : [mainAgentId],
+          agentIds: this.conversationSettings.agentIds,
           metadata: this.conversationSettings.metadata,
           streaming: this.conversationSettings.streaming,
           cache: this.conversationSettings.cache
@@ -2349,7 +2331,31 @@ export default {
   box-shadow: var(--shadow-sm);
 }
 
-/* 响应式调整 */
+/* 工具列表样式 */
+.tool-list {
+  margin: 20px;
+  padding: 10px;
+  background-color: var(--bg-elevated);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+}
+.tool-list h3 {
+  font-size: 16px;
+  font-weight: bold;
+  margin-bottom: 10px;
+}
+.tool-list ul {
+  list-style: none;
+  padding: 0;
+}
+.tool-list li {
+  padding: 5px 0;
+  border-bottom: 1px solid var(--border-hover);
+}
+.tool-list li:last-child {
+  border-bottom: none;
+}
+/* ================== 响应式调整 ================== */
 @media (max-width: 768px) {
   .settings-dialog {
     width: 95%;
@@ -2376,508 +2382,14 @@ export default {
     align-items: stretch;
   }
 }
-
-/* ================== 优化后的设置界面样式 ================== */
-.dialog-title {
-
-  flex: 1;
-}
-
-.dialog-title h3 {
-  margin: 0 0 4px 0;
-  font-size: 20px;
-  font-weight: 700;
-  color: var(--text-main);
-}
-
-.dialog-subtitle {
-  margin: 0;
-  font-size: 13px;
-  color: var(--text-tertiary);
-  font-weight: 400;
-}
-
-.dialog-tabs {
-  display: flex;
-  border-bottom: 1px solid var(--border-color);
-  background-color: var(--bg-elevated);
-  padding: 0 32px;
-}
-
-.tab-btn {
-  flex: 1;
-  padding: 16px 0;
-  background: transparent;
-  border: none;
-  border-bottom: 3px solid transparent;
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--text-tertiary);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  transition: all var(--transition-base);
-}
-
-.tab-btn:hover {
-  color: var(--text-secondary);
-}
-
-.tab-btn.active {
-  color: var(--primary-color);
-  border-bottom-color: var(--primary-color);
-}
-
-.tab-icon {
-  font-size: 16px;
-}
-
-.tab-content {
-  animation: fadeIn 0.3s ease-out;
-}
-
-.form-section {
-  margin-bottom: 32px;
-  padding-bottom: 24px;
-  border-bottom: 1px solid var(--border-color);
-}
-
-.form-section:last-child {
-  border-bottom: none;
-  margin-bottom: 0;
-  padding-bottom: 0;
-}
-
-.section-title {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin: 0 0 20px 0;
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--text-main);
-}
-
-.section-icon {
-  font-size: 18px;
-}
-
-.form-label {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 10px;
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--text-main);
-}
-
-.label-icon {
-  margin-right: 8px;
-  font-size: 16px;
-}
-
-.value-display {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--primary-color);
-  background: var(--primary-light);
-  padding: 4px 10px;
-  border-radius: var(--radius-sm);
-}
-
-.select-wrapper {
-  position: relative;
-}
-
-.select-wrapper .form-select {
-  padding-right: 40px;
-}
-
-.select-wrapper .select-arrow {
-  position: absolute;
-  right: 16px;
-  top: 50%;
-  transform: translateY(-50%);
-  pointer-events: none;
-  font-size: 12px;
-  color: var(--text-tertiary);
-}
-
-.agent-selection-card {
-  background: var(--bg-color);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-}
-
-.agent-card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px;
-  background: var(--bg-elevated);
-  border-bottom: 1px solid var(--border-color);
-}
-
-.agent-card-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-main);
-}
-
-.agent-card-count {
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--primary-color);
-  background: var(--primary-light);
-  padding: 2px 8px;
-  border-radius: var(--radius-full);
-}
-
-.agent-card-body {
-  padding: 20px 16px;
-  min-height: 120px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.no-agents-selected {
-  text-align: center;
-  color: var(--text-tertiary);
-}
-
-.no-agents-icon {
-  display: block;
-  font-size: 32px;
-  margin-bottom: 12px;
-  opacity: 0.6;
-}
-
-.no-agents-selected p {
-  margin: 0 0 6px 0;
-  font-size: 14px;
-}
-
-.no-agents-selected small {
-  font-size: 12px;
-}
-
-.selected-agents-list {
-  width: 100%;
-}
-
-.selected-agent-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px;
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  margin-bottom: 8px;
-  transition: all var(--transition-fast);
-}
-
-.selected-agent-item:hover {
-  border-color: var(--border-hover);
-  background: var(--bg-hover);
-}
-
-.agent-avatar {
-  font-size: 20px;
-  flex-shrink: 0;
-}
-
-.agent-name {
-  flex: 1;
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--text-main);
-}
-
-.remove-agent-btn {
-  width: 24px;
-  height: 24px;
-  border: none;
-  background: transparent;
-  color: var(--text-tertiary);
-  font-size: 20px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--radius-sm);
-  transition: all var(--transition-fast);
-}
-
-.remove-agent-btn:hover {
-  background: rgba(239, 68, 68, 0.1);
-  color: var(--danger-color);
-}
-
-.agent-card-footer {
-  padding: 16px;
-  border-top: 1px solid var(--border-color);
-  background: var(--bg-elevated);
-}
-
-.btn-add-agents {
-  width: 100%;
-  padding: 12px;
-  background: var(--primary-light);
-  color: var(--primary-color);
-  border: 1px solid var(--primary-light);
-  border-radius: var(--radius-md);
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  transition: all var(--transition-base);
-}
-
-.btn-add-agents:hover {
-  background: var(--primary-color);
-  color: var(--text-inverse);
-}
-
-.btn-icon {
-  font-size: 16px;
-  font-weight: 600;
-}
-
-.slider-container {
-  margin-top: 8px;
-}
-
-.slider-labels {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 8px;
-  font-size: 12px;
-  color: var(--text-tertiary);
-}
-
-.slider-label {
-  flex: 1;
-  text-align: center;
-}
-
-.slider-hint {
-  margin-top: 8px;
-  font-size: 12px;
-  color: var(--text-tertiary);
-  line-height: 1.4;
-}
-
-.input-with-unit {
-  position: relative;
-}
-
-.input-with-unit .form-input {
-  padding-right: 70px;
-}
-
-.input-unit {
-  position: absolute;
-  right: 16px;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 14px;
-  color: var(--text-tertiary);
-}
-
-.metadata-editor {
-  background: var(--bg-color);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-}
-
-.editor-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 12px 16px;
-  background: var(--bg-elevated);
-  border-bottom: 1px solid var(--border-color);
-}
-
-.editor-title {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-main);
-}
-
-.btn-format {
-  padding: 4px 12px;
-  background: transparent;
-  color: var(--text-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all var(--transition-fast);
-}
-
-.btn-format:hover {
-  background: var(--bg-hover);
-  border-color: var(--border-hover);
-}
-
-.metadata-textarea {
-  font-family: var(--font-mono);
-  font-size: 13px;
-  line-height: 1.5;
-  border: none;
-  border-radius: 0;
-  min-height: 120px;
-  background: var(--bg-color);
-}
-
-.editor-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 12px 16px;
-  background: var(--bg-elevated);
-  border-top: 1px solid var(--border-color);
-}
-
-.json-status {
-  font-size: 11px;
-  font-weight: 500;
-  padding: 2px 8px;
-  border-radius: var(--radius-sm);
-  background: rgba(239, 68, 68, 0.1);
-  color: var(--danger-color);
-}
-
-.json-status.valid {
-  background: rgba(16, 185, 129, 0.1);
-  color: var(--success-color);
-}
-
-.checkbox-group {
+.tools-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
 }
-
-.checkbox-label {
+.tool-item {
   display: flex;
   align-items: center;
-  gap: 10px;
-  cursor: pointer;
-  user-select: none;
-}
-
-.checkbox-input {
-  display: none;
-}
-
-.checkbox-custom {
-  width: 18px;
-  height: 18px;
-  border: 2px solid var(--border-color);
-  border-radius: var(--radius-sm);
-  background: var(--bg-elevated);
-  position: relative;
-  transition: all var(--transition-fast);
-}
-
-.checkbox-input:checked + .checkbox-custom {
-  background: var(--primary-color);
-  border-color: var(--primary-color);
-}
-
-.checkbox-input:checked + .checkbox-custom::after {
-  content: '✓';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  color: var(--text-inverse);
-  font-size: 12px;
-  font-weight: bold;
-}
-
-.checkbox-text {
-  font-size: 14px;
-  color: var(--text-main);
-}
-
-.footer-actions {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  width: 100%;
-}
-
-.primary-actions {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-}
-
-.btn-outline {
-  padding: 10px 20px;
-  background: transparent;
-  color: var(--text-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all var(--transition-base);
-}
-
-.btn-outline:hover {
-  background: var(--bg-hover);
-  border-color: var(--border-hover);
-}
-
-/* 响应式调整 */
-@media (max-width: 768px) {
-  .dialog-tabs {
-    padding: 0 20px;
-  }
-
-  .tab-btn {
-    padding: 14px 0;
-    font-size: 13px;
-  }
-
-  .form-section {
-    margin-bottom: 24px;
-    padding-bottom: 20px;
-  }
-
-  .agent-card-body {
-    min-height: 100px;
-    padding: 16px;
-  }
-
-  .footer-actions {
-    flex-direction: column;
-    gap: 16px;
-  }
-
-  .primary-actions {
-    width: 100%;
-    justify-content: space-between;
-  }
-
-  .btn-outline,
-  .btn-primary {
-    flex: 1;
-  }
+  gap: 8px;
 }
 </style>

@@ -278,10 +278,6 @@ module.exports = async function conversationRoute(fastify, opts = {}) {
             ? null
             : Number(row.main_agent_id);
 
-        if (mainAgentIdResponse !== null && !linkedAgentIds.includes(mainAgentIdResponse)) {
-          linkedAgentIds = [mainAgentIdResponse, ...linkedAgentIds];
-        }
-
         const conversationIdResponse = Number(row.id);
         const userIdResponse = Number(row.creator_id);
 
@@ -669,11 +665,6 @@ module.exports = async function conversationRoute(fastify, opts = {}) {
               [agentIdValue, normalizedConversationId]
             );
           }
-        } else if (hasMainAgent && normalizedMainAgent !== null) {
-          await fastify.mysql.query(
-            'INSERT INTO agent_conversation (agent_id, conversation_id) VALUES (?, ?) ON DUPLICATE KEY UPDATE agent_id = agent_id',
-            [normalizedMainAgent, normalizedConversationId]
-          );
         }
 
         const updatedRows = await fastify.mysql.query(
@@ -701,13 +692,6 @@ module.exports = async function conversationRoute(fastify, opts = {}) {
           updatedRow.main_agent_id === undefined || updatedRow.main_agent_id === null
             ? null
             : Number(updatedRow.main_agent_id);
-
-        if (mainAgentIdResponse !== null) {
-          linkedAgentIds = [
-            mainAgentIdResponse,
-            ...linkedAgentIds.filter((id) => id !== mainAgentIdResponse)
-          ];
-        }
 
         return reply.sendSuccess(
           {
@@ -816,36 +800,6 @@ module.exports = async function conversationRoute(fastify, opts = {}) {
                       ],
                       additionalProperties: false
                     },
-                    mainAgent: {
-                      type: ['object', 'null'],
-                      properties: {
-                        id: { type: 'integer' },
-                        name: { type: ['string', 'null'] },
-                        description: { type: ['string', 'null'] },
-                        avatar: { type: ['string', 'null'] },
-                        category: { type: ['string', 'null'] },
-                        url: { type: ['string', 'null'] },
-                        connectType: { type: ['string', 'null'] },
-                        isTested: { type: 'boolean' },
-                        isPublic: { type: 'boolean' },
-                        createdAt: { type: ['string', 'null'], format: 'date-time' },
-                        updatedAt: { type: ['string', 'null'], format: 'date-time' }
-                      },
-                      required: [
-                        'id',
-                        'name',
-                        'description',
-                        'avatar',
-                        'category',
-                        'url',
-                        'connectType',
-                        'isTested',
-                        'isPublic',
-                        'createdAt',
-                        'updatedAt'
-                      ],
-                      additionalProperties: false
-                    },
                     linkedAgents: {
                       type: 'array',
                       items: {
@@ -896,7 +850,7 @@ module.exports = async function conversationRoute(fastify, opts = {}) {
                       }
                     }
                   },
-                  required: ['conversation', 'mainAgent', 'linkedAgents', 'messages'],
+                  required: ['conversation', 'linkedAgents', 'messages'],
                   additionalProperties: false
                 }
               }
@@ -948,45 +902,6 @@ module.exports = async function conversationRoute(fastify, opts = {}) {
         return reply.sendError('User does not own the conversation', 403);
       }
 
-      const mainAgentId =
-        conversationRow.main_agent_id === undefined || conversationRow.main_agent_id === null
-          ? null
-          : Number(conversationRow.main_agent_id);
-
-      let mainAgentData = null;
-
-      if (mainAgentId !== null) {
-        let mainAgentRows;
-        try {
-          mainAgentRows = await fastify.mysql.query(
-            'SELECT id, name, description, avatar, category, url, connect_type, is_tested, is_public, created_at, updated_at FROM agent WHERE id = ? LIMIT 1',
-            [mainAgentId]
-          );
-        } catch (error) {
-          fastify.log.error({ err: error, mainAgentId }, 'Failed to load main agent for conversation detail');
-          return reply.sendError('Failed to load main agent', 500);
-        }
-
-        if (!Array.isArray(mainAgentRows) || mainAgentRows.length === 0) {
-          return reply.sendError('Main agent not found', 404);
-        }
-
-        const mainAgentRow = mainAgentRows[0];
-        mainAgentData = {
-          id: Number(mainAgentRow.id),
-          name: mainAgentRow.name || null,
-          description: mainAgentRow.description || null,
-          avatar: mainAgentRow.avatar || null,
-          category: mainAgentRow.category || null,
-          url: mainAgentRow.url || null,
-          connectType: mainAgentRow.connect_type || null,
-          isTested: Number(mainAgentRow.is_tested) === 1,
-          isPublic: Number(mainAgentRow.is_public) === 1,
-          createdAt: normalizeDate(mainAgentRow.created_at),
-          updatedAt: normalizeDate(mainAgentRow.updated_at)
-        };
-      }
-
       let linkedAgentRows = [];
       try {
         linkedAgentRows = await fastify.mysql.query(
@@ -1013,7 +928,6 @@ module.exports = async function conversationRoute(fastify, opts = {}) {
               createdAt: normalizeDate(row.created_at),
               updatedAt: normalizeDate(row.updated_at)
             }))
-            .filter((agent) => agent.id !== mainAgentId)
         : [];
 
       let messageRows = [];
@@ -1047,9 +961,6 @@ module.exports = async function conversationRoute(fastify, opts = {}) {
         : [];
 
       const agentIds = [];
-      if (mainAgentId !== null) {
-        agentIds.push(mainAgentId);
-      }
       for (const agent of linkedAgents) {
         agentIds.push(agent.id);
       }
@@ -1057,7 +968,7 @@ module.exports = async function conversationRoute(fastify, opts = {}) {
       const conversationData = {
         id: Number(conversationRow.id),
         userId: Number(conversationRow.creator_id),
-        mainAgent: mainAgentId,
+        mainAgent: Number(conversationRow.main_agent_id),
         agentIds,
         title: conversationRow.title || null,
         metadata: parseJsonColumn(conversationRow.metadata),
@@ -1077,7 +988,6 @@ module.exports = async function conversationRoute(fastify, opts = {}) {
 
       return reply.sendSuccess({
         conversation: conversationData,
-        mainAgent: mainAgentData,
         linkedAgents,
         messages
       });
