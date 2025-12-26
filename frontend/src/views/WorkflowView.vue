@@ -111,14 +111,20 @@
             <Handle type="target" position="left" class="port-handle" />
             <div class="node-content">
               <template v-if="data.type === 'agent'">
-                <img
-                  :src="data.avatar || 'https://via.placeholder.com/100'"
-                  :alt="data.label"
-                  class="agent-avatar"
-                />
+                <div style="position:relative;display:inline-block;">
+                  <img
+                    :src="data.avatar || 'https://via.placeholder.com/100'"
+                    :alt="data.label"
+                    class="agent-avatar"
+                  />
+                  <span v-if="data.loading" class="node-loading-spinner"></span>
+                </div>
               </template>
               <template v-else>
-                <div class="node-icon">{{ getNodeIcon(data.type) }}</div>
+                <div class="node-icon" style="position:relative;display:inline-block;">
+                  {{ getNodeIcon(data.type) }}
+                  <span v-if="data.loading" class="node-loading-spinner"></span>
+                </div>
               </template>
               <div class="node-label">{{ data.label }}</div>
             </div>
@@ -368,6 +374,7 @@ const getNodeIcon = (type) => {
 const messages = ref([])
 
 const handleRun = () => {
+  messages.value = []  // 每次运行前清空消息历史
   const visited = new Set();
 
   const traverse = async (nodeId) => {
@@ -376,30 +383,32 @@ const handleRun = () => {
 
     const node = elements.value.find(el => el.id === nodeId && el.type !== 'edge');
     if (node) {
-      console.log('Processing node detail:', JSON.parse(JSON.stringify(node)));
-      // 如果是 agent 节点，发起 agent_call 请求
-      if (node.data.type === 'agent' && node.data.agentId && user.value && user.value.id) {
-        try {
-          // 1. 先将当前 messages 写入本地 messages 数组
-          const userMsg = {
-            role: 'user',
-            content: node.data.info || ''
-          };
-          messages.value.push(userMsg);
-          // 2. 发送整个 messages 数组
-          const params = {
-            userId: user.value.id,
-            agentId: node.data.agentId,
-            messages: messages.value.slice() // 发送当前所有消息历史
-          };
-          // api.agent.callAgent 是异步方法
-          const result = await api.agent.callAgent(params);
-          // 打印调用结果
-          console.log('Agent call result:', JSON.parse(JSON.stringify(result)));
-          // 处理返回格式
+      node.data.loading = true;
+      try {
+        console.log('Processing node detail:', JSON.parse(JSON.stringify(node)));
+        // 如果是 agent 节点，发起 agent_call 请求
+        if (node.data.type === 'agent' && node.data.agentId && user.value && user.value.id) {
+          try {
+            // 1. 先将当前 messages 写入本地 messages 数组
+            const userMsg = {
+              role: 'user',
+              content: node.data.info || ''
+            };
+            messages.value.push(userMsg);
+            // 2. 发送整个 messages 数组
+            const params = {
+              userId: user.value.id,
+              agentId: node.data.agentId,
+              messages: messages.value.slice() // 发送当前所有消息历史
+            };
+            // api.agent.callAgent 是异步方法
+            const result = await api.agent.callAgent(params);
+            // 打印调用结果
+            console.log('Agent call result:', JSON.parse(JSON.stringify(result)));
+            // 处理返回格式
             if (Array.isArray(result.messages)) {
-            // 1. 只取 assistant 的最新 content 写入节点 output，防止整个 messages 被赋值
-            let outputContent = '';
+              // 1. 只取 assistant 的最新 content 写入节点 output，防止整个 messages 被赋值
+              let outputContent = '';
               if (result.messages.length === 1 && result.messages[0].role === 'assistant') {
                 outputContent = result.messages[0].content;
               } else {
@@ -408,22 +417,25 @@ const handleRun = () => {
                   outputContent = assistantMsgs[assistantMsgs.length - 1].content;
                 }
               }
-            node.data.output = outputContent;
-            // 2. 将所有 messages 追加到本地 messages 数组
-            messages.value.push(...result.messages);
-            // 打印 messages 数组
-            console.log('messages:', JSON.parse(JSON.stringify(messages.value)));
-          } else {
-            node.data.output = JSON.stringify(result);
+              node.data.output = outputContent;
+              // 2. 将所有 messages 追加到本地 messages 数组
+              messages.value.push(...result.messages);
+              // 打印 messages 数组
+              console.log('messages:', JSON.parse(JSON.stringify(messages.value)));
+            } else {
+              node.data.output = JSON.stringify(result);
+            }
+          } catch (err) {
+            node.data.output = 'Agent 调用失败: ' + (err && err.message ? err.message : String(err));
           }
-        } catch (err) {
-          node.data.output = 'Agent 调用失败: ' + (err && err.message ? err.message : String(err));
         }
-      }
-      const outgoingEdges = elements.value.filter(el => el.source === nodeId);
-      // 顺序串行遍历
-      for (const edge of outgoingEdges) {
-        await traverse(edge.target);
+        const outgoingEdges = elements.value.filter(el => el.source === nodeId);
+        // 顺序串行遍历
+        for (const edge of outgoingEdges) {
+          await traverse(edge.target);
+        }
+      } finally {
+        node.data.loading = false;
       }
     }
   };
@@ -754,5 +766,27 @@ const handleRun = () => {
   height: 10px;
   background: #409eff;
   border: 2px solid #fff; /* 增加白色描边让端口更清晰 */
+}
+
+/* 加载中动画样式 */
+.node-loading-spinner {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 22px;
+  height: 22px;
+  margin-left: -11px;
+  margin-top: -11px;
+  border: 3px solid #c6e2ff;
+  border-top: 3px solid #409eff;
+  border-radius: 50%;
+  animation: node-spin 0.8s linear infinite;
+  z-index: 2;
+  background: transparent;
+}
+
+@keyframes node-spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 </style>
