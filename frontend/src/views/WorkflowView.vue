@@ -375,39 +375,89 @@ const messages = ref([])
 
 const handleRun = () => {
   messages.value = []  // 每次运行前清空消息历史
+
+  // 1. 生成拓扑分层结构
+  const nodes = elements.value.filter(el => el.type !== 'edge');
+  const edges = elements.value.filter(el => el.type === 'edge');
+  const inDegree = {};
+  const outEdges = {};
+  nodes.forEach(node => {
+    inDegree[node.id] = 0;
+    outEdges[node.id] = [];
+  });
+  edges.forEach(edge => {
+    if (inDegree[edge.target] !== undefined) inDegree[edge.target]++;
+    if (outEdges[edge.source]) outEdges[edge.source].push(edge.target);
+  });
+
+  // 层次分组
+  const levels = [];
+  let currentLevel = nodes.filter(node => inDegree[node.id] === 0).map(node => node.id);
   const visited = new Set();
+  while (currentLevel.length > 0) {
+    levels.push([...currentLevel]);
+    const nextLevel = [];
+    for (const nodeId of currentLevel) {
+      visited.add(nodeId);
+      for (const targetId of outEdges[nodeId]) {
+        inDegree[targetId]--;
+        if (inDegree[targetId] === 0) {
+          nextLevel.push(targetId);
+        }
+      }
+    }
+    currentLevel = nextLevel;
+  }
 
-  const traverse = async (nodeId) => {
-    if (visited.has(nodeId)) return;
-    visited.add(nodeId);
+  // 2. 定义节点执行逻辑（动态组合消息历史）
+  // 辅助：递归获取所有父节点（依赖节点，去重，按依赖顺序）
+  const getParentNodes = (nodeId, edges, visited = new Set()) => {
+    let result = [];
+    for (const edge of edges) {
+      if (edge.target === nodeId && !visited.has(edge.source)) {
+        visited.add(edge.source);
+        // 先递归父节点的父节点
+        result = result.concat(getParentNodes(edge.source, edges, visited));
+        // 再加上当前父节点
+        result.push(edge.source);
+      }
+    }
+    return result;
+  };
 
+  const runNode = async (nodeId) => {
     const node = elements.value.find(el => el.id === nodeId && el.type !== 'edge');
     if (node) {
       node.data.loading = true;
       try {
-        console.log('Processing node detail:', JSON.parse(JSON.stringify(node)));
+        // 组合消息历史：递归所有父节点的 info/output
+        const parentNodeIds = getParentNodes(nodeId, edges);
+        const messages = [];
+        for (const prevId of parentNodeIds) {
+          const prevNode = elements.value.find(el => el.id === prevId && el.type !== 'edge');
+          if (prevNode) {
+            if (prevNode.data && prevNode.data.info) {
+              messages.push({ role: 'user', content: prevNode.data.info });
+            }
+            if (prevNode.data && prevNode.data.output) {
+              messages.push({ role: 'system', content: prevNode.data.output });
+            }
+          }
+        }
+        // 当前节点 info 作为本轮 user 输入
+        if (node.data.info) {
+          messages.push({ role: 'user', content: node.data.info });
+        }
         // 如果是 agent 节点，发起 agent_call 请求
         if (node.data.type === 'agent' && node.data.agentId && user.value && user.value.id) {
           try {
-            // 1. 先将当前 messages 写入本地 messages 数组
-            const userMsg = {
-              role: 'user',
-              content: node.data.info || ''
-            };
-            messages.value.push(userMsg);
-            // 2. 发送整个 messages 数组
             const params = {
               userId: user.value.id,
               agentId: node.data.agentId,
-              messages: messages.value.slice() // 发送当前所有消息历史
+              messages
             };
-            // api.agent.callAgent 是异步方法
             const result = await api.agent.callAgent(params);
-            // 打印调用结果
-            console.log('Agent call result:', JSON.parse(JSON.stringify(result)));
-            // 处理返回格式
             if (Array.isArray(result.messages)) {
-              // 1. 只取 assistant 的最新 content 写入节点 output，防止整个 messages 被赋值
               let outputContent = '';
               if (result.messages.length === 1 && result.messages[0].role === 'assistant') {
                 outputContent = result.messages[0].content;
@@ -418,10 +468,6 @@ const handleRun = () => {
                 }
               }
               node.data.output = outputContent;
-              // 2. 将所有 messages 追加到本地 messages 数组
-              messages.value.push(...result.messages);
-              // 打印 messages 数组
-              console.log('messages:', JSON.parse(JSON.stringify(messages.value)));
             } else {
               node.data.output = JSON.stringify(result);
             }
@@ -429,22 +475,19 @@ const handleRun = () => {
             node.data.output = 'Agent 调用失败: ' + (err && err.message ? err.message : String(err));
           }
         }
-        const outgoingEdges = elements.value.filter(el => el.source === nodeId);
-        // 顺序串行遍历
-        for (const edge of outgoingEdges) {
-          await traverse(edge.target);
-        }
       } finally {
         node.data.loading = false;
       }
     }
   };
 
-  const startNodes = elements.value.filter(el => el.type !== 'edge' && el.data.type === 'start');
-  // 串行执行每个入口
+  // 3. 按层串行，层内并行执行
   (async () => {
-    for (const node of startNodes) {
-      await traverse(node.id);
+    for (const level of levels) {
+      for (const nodeId of level) {
+        await runNode(nodeId);
+      }
+      // await Promise.all(level.map(runNode));
     }
   })();
 };

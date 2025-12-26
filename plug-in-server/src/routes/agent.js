@@ -1142,7 +1142,7 @@ module.exports = async function agentRoute(fastify, opts = {}) {
       try {
         await client.connect();
         // agent.url 作为子 agent，获取工具
-        if (agent.url) {
+        if (agentId!==1&&agent.url) {
           const subClient = new McpClient({ url: agent.url });
           try {
             await subClient.connect();
@@ -1187,7 +1187,6 @@ module.exports = async function agentRoute(fastify, opts = {}) {
       // 6. 工具调用主循环
       const MAX_TOOL_ITER = 6;
       let conversationMessages = [...normalizedMessages];
-      let finalReply = null;
       try {
         for (let i = 0; i < MAX_TOOL_ITER; i++) {
           const callArguments = {
