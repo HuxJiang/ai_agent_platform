@@ -1,5 +1,7 @@
 <template>
-  <router-view />
+  <el-config-provider>
+    <router-view />
+  </el-config-provider>
 </template>
 
 <script>
@@ -40,28 +42,6 @@ a:hover {
   color: #5a67d8;
 }
 
-/* 全局按钮基础样式 */
-button {
-  font-family: inherit;
-  cursor: pointer;
-  border: none;
-  outline: none;
-  transition: all 0.2s;
-}
-
-/* 全局输入框基础样式 */
-input {
-  font-family: inherit;
-  outline: none;
-  border: 1px solid #e2e8f0;
-  transition: border-color 0.2s, box-shadow 0.2s;
-}
-
-input:focus {
-  border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-}
-
 /* 通用布局类 */
 .container {
   width: 100%;
@@ -75,5 +55,37 @@ input:focus {
   .container {
     padding: 0 12px;
   }
+}
+
+/* Element Plus 样式覆盖和增强 */
+.el-button {
+  font-family: inherit;
+}
+
+.el-input__inner {
+  font-family: inherit;
+}
+
+.el-menu {
+  border-right: none !important;
+}
+
+.el-card {
+  border-radius: 12px !important;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
+  transition: all 0.3s ease;
+}
+
+.el-card:hover {
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05) !important;
+  transform: translateY(-2px);
+}
+
+.el-dialog {
+  border-radius: 16px !important;
+}
+
+.el-message {
+  border-radius: 10px !important;
 }
 </style>

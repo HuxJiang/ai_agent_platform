@@ -1,31 +1,40 @@
 <template>
-  <div class="app-container">
+  <div class="home-container">
     <!-- 1. 全局顶部导航栏 -->
-        <AppNavbar :user="user" @logout="handleLogout" />
+    <AppNavbar :user="user" @logout="handleLogout" />
 
-    <div class="main-layout">
+    <el-container class="main-content">
       <!-- 2. 左侧导航侧边栏 -->
       <AppSidebar />
 
       <!-- 3. 左侧会话菜单栏 -->
-      <aside class="conversation-sidebar">
+      <el-aside class="conversation-sidebar" width="300px">
         <!-- 会话列表区域 -->
         <div class="conversations-section">
           <div class="section-header">
             <h3>我的会话</h3>
-            <button class="btn-new-conversation" @click="createNewConversation" title="创建新会话">
-              + 新建会话
-            </button>
+            <el-button
+              type="primary"
+              size="small"
+              @click="createNewConversation"
+              class="btn-new-conversation"
+              title="创建新会话"
+            >
+              <el-icon><Plus /></el-icon>新建会话
+            </el-button>
           </div>
 
           <div class="conversations-list">
             <div v-if="conversationsLoading" class="loading-conversations">
-              <div class="spinner small"></div>
+              <el-icon class="is-loading"><Loading /></el-icon>
               <span>加载会话中...</span>
             </div>
 
             <div v-else-if="conversations.length === 0" class="no-conversations">
               <p>暂无会话</p>
+              <el-button type="primary" size="small" @click="createNewConversation">
+                创建第一个会话
+              </el-button>
             </div>
 
             <div
@@ -39,39 +48,46 @@
               </div>
               <div class="conversation-actions">
                 <span class="conversation-time">{{ formatTime(conversation.updatedAt || conversation.createdAt) }}</span>
-                <button
-                  class="btn-delete-conversation"
+                <el-button
+                  type="danger"
+                  size="small"
+                  circle
                   @click.stop="deleteConversation(conversation)"
                   title="删除会话"
-                >
-                  🗑️
-                </button>
+                  class="btn-delete-conversation"
+                ><el-icon><Delete /></el-icon></el-button>
               </div>
             </div>
           </div>
         </div>
-
-      </aside>
+      </el-aside>
 
       <!-- 4. 核心聊天内容区 -->
-      <main class="chat-content">
+      <el-main class="chat-content">
         <!-- 聊天头部 -->
-        <header class="chat-header">
+        <el-header class="chat-header">
           <div class="header-info">
             <h2>{{ currentConversation?.title || '实时对话' }}</h2>
             <p class="subtitle">与您的 AI 助手进行互动</p>
           </div>
           <div class="header-actions" v-if="currentConversation">
-            <button class="btn-edit-settings" @click="openSettingsDialog(currentConversation)" title="编辑会话设置">
-              ⚙️ 设置
-            </button>
+            <el-button
+              type="primary"
+              plain
+              :icon="Setting"
+              @click="openSettingsDialog(currentConversation)"
+              title="编辑会话设置"
+              class="btn-edit-settings"
+            >
+              设置
+            </el-button>
           </div>
-        </header>
+        </el-header>
 
         <!-- 消息列表区域 -->
         <div class="chat-viewport" ref="chatViewport">
           <div v-if="loading" class="state-container">
-            <div class="spinner"></div>
+            <el-icon class="is-loading"><Loading /></el-icon>
             <p>正在连接智能体...</p>
           </div>
 
@@ -88,10 +104,11 @@
               :class="['message-row', message.role]"
             >
               <div class="avatar-col">
-                <img
+                <el-avatar
+                  :size="44"
                   :src="message.role === 'user' ? userAvatar : getAgentAvatar(message.role)"
-                  class="chat-avatar"
                   :alt="message.role"
+                  class="chat-avatar"
                 />
               </div>
               <div class="bubble-col">
@@ -107,276 +124,234 @@
           </div>
         </div>
 
-        <!-- 底部输入框 (CSS 已优化) -->
-        <footer class="chat-input-area">
+        <!-- 底部输入框 -->
+        <el-footer class="chat-input-area">
           <div class="input-wrapper" :class="{ 'sending': sending }">
-            <input
-              type="text"
+            <el-input
+              type="textarea"
               v-model="inputMessage"
-              placeholder="输入消息，Enter 发送..."
+              :placeholder="sending ? '正在发送...' : '输入消息，Enter 发送...'"
               class="message-input"
-              @keyup.enter="handleSendMessage"
+              @keyup.enter.native="handleSendMessage"
               :disabled="sending"
+              :autosize="{ minRows: 1, maxRows: 4 }"
+              resize="none"
             />
-            <button
-              class="btn-send"
+            <el-button
+              type="primary"
+              circle
               @click="handleSendMessage"
               :disabled="!inputMessage.trim() || sending"
+              class="btn-send"
+              :loading="sending"
             >
-              <span v-if="sending" class="loading-dots">...</span>
-              <span v-else>➤</span>
-            </button>
+              <el-icon v-if="sending"><Loading /></el-icon>
+              <el-icon v-else><Right /></el-icon>
+            </el-button>
           </div>
-        </footer>
-      </main>
-    </div>
+        </el-footer>
+      </el-main>
+    </el-container>
 
     <!-- 参数设置对话框 -->
-    <div v-if="showSettingsDialog" class="settings-dialog-overlay" @click.self="closeSettingsDialog">
-      <div class="settings-dialog">
-        <div class="dialog-header">
-          <div class="dialog-title">
-            <h3>{{ currentConversation ? '编辑会话设置' : '创建新会话' }}</h3>
-            <p class="dialog-subtitle">配置会话参数以获得最佳体验</p>
-          </div>
-          <button class="btn-close" @click="closeSettingsDialog">×</button>
-        </div>
-
-        <div class="dialog-tabs">
-          <button
-            class="tab-btn"
-            :class="{ active: activeTab === 'basic' }"
-            @click="activeTab = 'basic'"
-          >
-            <span class="tab-icon">⚙️</span> 基本设置
-          </button>
-          <button
-            class="tab-btn"
-            :class="{ active: activeTab === 'advanced' }"
-            @click="activeTab = 'advanced'"
-          >
-            <span class="tab-icon">🔧</span> 高级设置
-          </button>
-        </div>
-
-        <div class="dialog-body">
-          <!-- 基本设置选项卡 -->
-          <div v-if="activeTab === 'basic'" class="tab-content">
+    <el-dialog
+      v-model="showSettingsDialog"
+      :title="currentConversation ? '编辑会话设置' : '创建新会话'"
+      width="500px"
+      :before-close="closeSettingsDialog"
+      class="settings-dialog"
+    >
+      <div class="dialog-tabs">
+        <el-tabs v-model="activeTab">
+          <el-tab-pane label="基本设置" name="basic">
             <div class="form-section">
               <h4 class="section-title">
-                <span class="section-icon">💬</span> 会话信息
+                <el-icon><ChatDotRound /></el-icon> 会话信息
               </h4>
-              <div class="form-group">
-                <label for="conversation-title" class="form-label">
-                  <span class="label-icon">📝</span> 会话标题
-                </label>
-                <input
-                  id="conversation-title"
-                  type="text"
-                  v-model="conversationSettings.title"
-                  placeholder="例如：项目讨论、学习助手..."
-                  class="form-input"
-                />
-                <small class="form-hint">为会话起一个有意义的名字，方便后续查找</small>
-              </div>
-            </div>
+              <el-form :model="conversationSettings" label-width="120px">
+                <el-form-item label="会话标题">
+                  <el-input
+                    v-model="conversationSettings.title"
+                    placeholder="例如：项目讨论、学习助手..."
+                    clearable
+                  />
+                  <div class="form-hint">为会话起一个有意义的名字，方便后续查找</div>
+                </el-form-item>
 
-            <div class="form-section">
-              <h4 class="section-title">
-                <span class="section-icon">🤖</span> AI 模型设置
-              </h4>
+                <el-form-item label="AI 模型">
+                  <el-select
+                    v-model="conversationSettings.model"
+                    placeholder="请选择模型"
+                    clearable
+                    style="width: 100%"
+                  >
+                    <el-option
+                      v-for="model in chat_model"
+                      :key="model.id"
+                      :label="model.name"
+                      :value="model.name"
+                    />
+                  </el-select>
+                  <div class="form-hint">如果留空，将使用所选智能体的默认模型</div>
+                </el-form-item>
 
-              <div class="form-group">
-                <label for="conversation-model" class="form-label">
-                  <span class="label-icon">🧠</span> 模型选择
-                </label>
-                <select
-                  id="conversation-model"
-                  v-model="conversationSettings.model"
-                  class="form-input"
-                >
-                  <option v-for="model in chat_model" :key="model.id" :value="model.name">
-                    {{ model.name }}
-                  </option>
-                </select>
-                <small class="form-hint">如果留空，将使用所选智能体的默认模型</small>
-              </div>
-            </div>
-
-            <div class="form-section">
-              <h4 class="section-title">
-                <span class="section-icon">⚒️</span> 插件选择
-              </h4>
-              <div class="form-group">
-                <div class="agent-selection-card">
-
-                  <div class="agent-card-body">
+                <el-form-item label="插件选择">
+                  <div class="tools-list">
+                    <el-checkbox-group v-model="conversationSettings.agentIds">
+                      <el-checkbox
+                        v-for="tool in tools_list"
+                        :key="tool.id"
+                        :label="tool.id"
+                        :value="tool.id"
+                      >
+                        {{ tool.name }}
+                      </el-checkbox>
+                    </el-checkbox-group>
                     <div v-if="tools_list.length === 0" class="no-agents-available">
-                      <span class="no-agents-icon">⚒️</span>
+                      <el-icon><Tools /></el-icon>
                       <p>暂无可用插件</p>
                     </div>
-                    <div v-else class="tools-list">
-                      <div class="tool-item" v-for="tool in tools_list" :key="tool.id">
-                        <label>
-                          <input
-                            type="checkbox"
-                            :value="tool.id"
-                            v-model="conversationSettings.agentIds"
-                          />
-                          {{ tool.name }}
-                        </label>
-                      </div>
+                  </div>
+                </el-form-item>
+              </el-form>
+            </div>
+          </el-tab-pane>
+
+          <el-tab-pane label="高级设置" name="advanced">
+            <div class="form-section">
+              <h4 class="section-title">
+                <el-icon><Operation /></el-icon> 模型参数
+              </h4>
+              <el-form :model="conversationSettings" label-width="120px">
+                <el-form-item label="温度控制">
+                  <div class="slider-container">
+                    <el-slider
+                      v-model="conversationSettings.temperature"
+                      :min="0"
+                      :max="2"
+                      :step="0.1"
+                      :show-input="true"
+                      :format-tooltip="(value) => value.toFixed(1)"
+                    />
+                    <div class="slider-labels">
+                      <span class="slider-label">精确</span>
+                      <span class="slider-label">平衡</span>
+                      <span class="slider-label">创意</span>
+                    </div>
+                    <div class="slider-hint">
+                      控制回复的随机性：较低值更精确，较高值更有创意
                     </div>
                   </div>
-                </div>
-              </div>
-            </div>
-          </div>
+                </el-form-item>
 
-          <!-- 高级设置选项卡 -->
-          <div v-if="activeTab === 'advanced'" class="tab-content">
-            <div class="form-section">
-              <h4 class="section-title">
-                <span class="section-icon">🎛️</span> 模型参数
-              </h4>
-
-              <div class="form-group">
-                <label for="conversation-temperature" class="form-label">
-                  <span class="label-icon">🌡️</span> 温度控制
-                  <span class="value-display">{{ conversationSettings.temperature.toFixed(1) }}</span>
-                </label>
-                <div class="slider-container">
-                  <input
-                    id="conversation-temperature"
-                    type="range"
-                    v-model.number="conversationSettings.temperature"
-                    min="0"
-                    max="2"
-                    step="0.1"
-                    class="form-range"
+                <el-form-item label="最大令牌数">
+                  <el-input-number
+                    v-model="conversationSettings.maxTokens"
+                    :min="1"
+                    :max="8192"
+                    controls-position="right"
+                    style="width: 100%"
                   />
-                  <div class="slider-labels">
-                    <span class="slider-label">精确</span>
-                    <span class="slider-label">平衡</span>
-                    <span class="slider-label">创意</span>
-                  </div>
-                  <div class="slider-hint">
-                    控制回复的随机性：较低值更精确，较高值更有创意
-                  </div>
-                </div>
-              </div>
+                  <div class="form-hint">控制单次回复的最大长度，建议值：1024-4096</div>
+                </el-form-item>
 
-              <div class="form-group">
-                <label for="conversation-maxTokens" class="form-label">
-                  <span class="label-icon">📏</span> 最大令牌数
-                </label>
-                <div class="input-with-unit">
-                  <input
-                    id="conversation-maxTokens"
-                    type="number"
-                    v-model.number="conversationSettings.maxTokens"
-                    min="1"
-                    max="8192"
-                    class="form-input"
-                  />
-                  <span class="input-unit">tokens</span>
-                </div>
-                <small class="form-hint">控制单次回复的最大长度，建议值：1024-4096</small>
-              </div>
-            </div>
-
-            <div class="form-section">
-              <h4 class="section-title">
-                <span class="section-icon">📊</span> 元数据配置
-              </h4>
-              <div class="form-group">
-                <label for="conversation-metadata" class="form-label">
-                  <span class="label-icon">📋</span> 自定义元数据
-                </label>
-                <div class="metadata-editor">
-                  <div class="editor-header">
-                    <span class="editor-title">JSON 编辑器</span>
-                    <button
-                      type="button"
-                      class="btn-format"
-                      @click="formatMetadata"
-                      title="格式化 JSON"
-                    >
-                      格式化
-                    </button>
+                <el-form-item label="自定义元数据">
+                  <div class="metadata-editor">
+                    <div class="editor-header">
+                      <span class="editor-title">JSON 编辑器</span>
+                      <el-button
+                        type="primary"
+                        size="small"
+                        @click="formatMetadata"
+                        title="格式化 JSON"
+                      >
+                        格式化
+                      </el-button>
+                    </div>
+                    <el-input
+                      type="textarea"
+                      v-model="metadataJson"
+                      placeholder='{
+  "key": "value",
+  "category": "general"
+}'
+                      :rows="6"
+                      :class="{ 'is-error': !isJsonValid }"
+                    />
+                    <div class="editor-footer">
+                      <div class="form-hint">可选的会话元数据，用于存储自定义信息</div>
+                      <span class="json-status" :class="{ valid: isJsonValid }">
+                        {{ isJsonValid ? '✓ JSON 有效' : '⚠ 检查 JSON 格式' }}
+                      </span>
+                    </div>
                   </div>
-                  <textarea
-                    id="conversation-metadata"
-                    v-model="metadataJson"
-                    placeholder='{\n  "key": "value",\n  "category": "general"\n}'
-                    class="form-textarea metadata-textarea"
-                    rows="6"
-                  ></textarea>
-                  <div class="editor-footer">
-                    <small class="form-hint">可选的会话元数据，用于存储自定义信息</small>
-                    <span class="json-status" :class="{ valid: isJsonValid }">
-                      {{ isJsonValid ? '✓ JSON 有效' : '⚠ 检查 JSON 格式' }}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
+                </el-form-item>
 
-            <div class="form-section">
-              <h4 class="section-title">
-                <span class="section-icon">⚡</span> 性能选项
-              </h4>
-              <div class="form-group">
-                <label class="form-label">
-                  <span class="label-icon">🚀</span> 其他设置
-                </label>
-                <div class="checkbox-group">
-                  <label class="checkbox-label">
-                    <input type="checkbox" v-model="conversationSettings.streaming" class="checkbox-input" />
-                    <span class="checkbox-custom"></span>
-                    <span class="checkbox-text">启用流式响应</span>
-                  </label>
-                  <label class="checkbox-label">
-                    <input type="checkbox" v-model="conversationSettings.cache" class="checkbox-input" checked />
-                    <span class="checkbox-custom"></span>
-                    <span class="checkbox-text">启用响应缓存</span>
-                  </label>
-                </div>
-              </div>
+                <el-form-item label="性能选项">
+                  <el-checkbox-group v-model="performanceOptions">
+                    <el-checkbox label="streaming">启用流式响应</el-checkbox>
+                    <el-checkbox label="cache">启用响应缓存</el-checkbox>
+                  </el-checkbox-group>
+                </el-form-item>
+              </el-form>
             </div>
-          </div>
-        </div>
-
-        <div class="dialog-footer">
-          <div class="footer-actions">
-            <button class="btn-secondary" @click="closeSettingsDialog">
-              <span class="btn-icon">←</span> 取消
-            </button>
-            <div class="primary-actions">
-              <button class="btn-outline" @click="resetToDefaults" v-if="activeTab === 'advanced'">
-                恢复默认
-              </button>
-              <button class="btn-primary" @click="saveConversationSettings">
-                <span class="btn-icon">💾</span>
-                {{ currentConversation ? '保存设置' : '创建会话' }}
-              </button>
-            </div>
-          </div>
-        </div>
+          </el-tab-pane>
+        </el-tabs>
       </div>
-    </div>
+
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="closeSettingsDialog">取消</el-button>
+          <el-button
+            v-if="activeTab === 'advanced'"
+            @click="resetToDefaults"
+            class="btn-outline"
+          >
+            恢复默认
+          </el-button>
+          <el-button
+            type="primary"
+            @click="saveConversationSettings"
+            :loading="loading"
+          >
+            {{ currentConversation ? '保存设置' : '创建会话' }}
+          </el-button>
+        </span>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script>
-// Script 逻辑保持不变
+// 保留核心逻辑，已清理无用代码
 import AppNavbar from '../components/AppNavbar.vue'
 import AppSidebar from '../components/AppSidebar.vue'
 import api from '../utils/api.js'
+import {
+  Plus,
+  Delete,
+  Setting,
+  Loading,
+  Right,
+  ChatDotRound,
+  Tools,
+  Operation
+} from '@element-plus/icons-vue'
 
 export default {
   name: 'ConversationView',
-  components: { AppNavbar, AppSidebar },
+  components: {
+    AppNavbar,
+    AppSidebar,
+    Plus,
+    Delete,
+    Setting,
+    Loading,
+    Right,
+    ChatDotRound,
+    Tools,
+    Operation
+  },
   data() {
     return {
       user: null,
@@ -433,6 +408,18 @@ export default {
         return true
       } catch (error) {
         return false
+      }
+    },
+    performanceOptions: {
+      get() {
+        const options = []
+        if (this.conversationSettings.streaming) options.push('streaming')
+        if (this.conversationSettings.cache) options.push('cache')
+        return options
+      },
+      set(value) {
+        this.conversationSettings.streaming = value.includes('streaming')
+        this.conversationSettings.cache = value.includes('cache')
       }
     }
   },
@@ -707,7 +694,9 @@ export default {
           temperature: conversation.temperature || 0.7,
           maxTokens: conversation.maxTokens || 1024,
           agentIds: conversation.agentIds || [],
-          metadata: conversation.metadata || {}
+          metadata: conversation.metadata || {},
+          streaming: conversation.streaming !== undefined ? conversation.streaming : true,
+          cache: conversation.cache !== undefined ? conversation.cache : true
         }
         this.currentConversation = conversation
       } else {
@@ -720,10 +709,13 @@ export default {
           temperature: 0.7,
           maxTokens: 1024,
           agentIds: [this.selectedAgentId],
-          metadata: {}
+          metadata: {},
+          streaming: true,
+          cache: true
         }
         this.currentConversation = null
       }
+      this.activeTab = 'basic'
       this.showSettingsDialog = true
     },
     // 关闭参数设置对话框
@@ -736,7 +728,9 @@ export default {
         temperature: 0.7,
         maxTokens: 1024,
         agentIds: [],
-        metadata: {}
+        metadata: {},
+        streaming: true,
+        cache: true
       }
     },
     // 保存会话设置
@@ -757,8 +751,10 @@ export default {
           temperature: this.conversationSettings.temperature,
           maxTokens: this.conversationSettings.maxTokens,
           mainAgent: mainAgentId,
-          agentIds: this.conversationSettings.agentIds.length > 0 ? this.conversationSettings.agentIds : [mainAgentId],
-          metadata: this.conversationSettings.metadata
+          agentIds: this.conversationSettings.agentIds,
+          metadata: this.conversationSettings.metadata,
+          streaming: this.conversationSettings.streaming,
+          cache: this.conversationSettings.cache
         }
 
         let response
@@ -814,314 +810,134 @@ export default {
       this.conversationSettings.maxTokens = 1024
       this.conversationSettings.streaming = true
       this.conversationSettings.cache = true
-    },
-    // 更新openSettingsDialog方法以包含新字段
-    openSettingsDialog(conversation = null) {
-      if (conversation) {
-        // 编辑现有会话
-        this.conversationSettings = {
-          title: conversation.title || '',
-          provider: conversation.provider || 'deepseek',
-          model: conversation.model || '',
-          temperature: conversation.temperature || 0.7,
-          maxTokens: conversation.maxTokens || 1024,
-          agentIds: conversation.agentIds || [],
-          metadata: conversation.metadata || {},
-          streaming: conversation.streaming !== undefined ? conversation.streaming : true,
-          cache: conversation.cache !== undefined ? conversation.cache : true
-        }
-        this.currentConversation = conversation
-      } else {
-        // 创建新会话
-        const selectedAgent = this.agents.find(agent => agent.id === this.selectedAgentId)
-        this.conversationSettings = {
-          title: '',
-          provider: 'deepseek',
-          model: selectedAgent ? selectedAgent.name : '',
-          temperature: 0.7,
-          maxTokens: 1024,
-          agentIds: [this.selectedAgentId],
-          metadata: {},
-          streaming: true,
-          cache: true
-        }
-        this.currentConversation = null
-      }
-      this.activeTab = 'basic'
-      this.showSettingsDialog = true
-    },
-    // 更新saveConversationSettings方法以包含新字段
-    async saveConversationSettings() {
-      if (!this.user) return
-
-      this.loading = true
-      try {
-        const mainAgentId = Number(this.selectedAgentId)
-        const selectedAgent = this.agents.find(agent => agent.id === this.selectedAgentId)
-        const model = this.conversationSettings.model || (selectedAgent ? selectedAgent.name : 'default-model')
-
-        const conversationData = {
-          userId: this.user.id,
-          title: this.conversationSettings.title || '未命名会话',
-          provider: this.conversationSettings.provider,
-          model: model,
-          temperature: this.conversationSettings.temperature,
-          maxTokens: this.conversationSettings.maxTokens,
-          mainAgent: mainAgentId,
-          agentIds: this.conversationSettings.agentIds,
-          metadata: this.conversationSettings.metadata,
-          streaming: this.conversationSettings.streaming,
-          cache: this.conversationSettings.cache
-        }
-
-        let response
-        if (this.currentConversation) {
-          // 更新现有会话
-          response = await api.conversation.updateConversation({
-            conversationId: this.currentConversation.id,
-            ...conversationData
-          })
-        } else {
-          // 创建新会话
-          response = await api.conversation.createConversation(conversationData)
-        }
-
-        this.currentConversation = response
-        this.messages = []
-        this.closeSettingsDialog()
-
-        // 重新获取会话列表
-        await this.getConversationsList()
-      } catch (error) {
-        console.error('保存会话设置失败:', error)
-        alert('保存会话设置失败，请稍后重试')
-      } finally {
-        this.loading = false
-      }
     }
   }
 }
 </script>
 
 <style scoped>
-/* ================== CSS 变量 ================== */
-:root {
-  --primary-color: #6366f1;
-  --primary-hover: #4f46e5;
-  --primary-light: #e0e7ff;
-  --secondary-color: #8b5cf6;
-  --success-color: #10b981;
-  --danger-color: #ef4444;
-  --warning-color: #f59e0b;
-
-  --bg-color: #5e6c79;
-  --bg-elevated: #ffffff;
-  --bg-hover: #f1f5f9;
-  --bg-active: #e2e8f0;
-
-  --white: #ffffff;
-  --text-main: #1e293b;
-  --text-secondary: #64748b;
-  --text-tertiary: #94a3b8;
-  --text-inverse: #ffffff;
-
-  --border-color: #ba2727;
-  --border-hover: #cbd5e1;
-  --border-active: #94a3b8;
-
-  --user-bubble: #6366f1;
-  --bot-bubble: #ffffff;
-  --assistant-bubble: #f1f5f9;
-
-  --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-
-  --radius-sm: 0.375rem;
-  --radius-md: 0.5rem;
-  --radius-lg: 0.75rem;
-  --radius-xl: 1rem;
-  --radius-full: 9999px;
-
-  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  --font-mono: 'SF Mono', Monaco, 'Cascadia Mono', 'Segoe UI Mono', 'Roboto Mono', monospace;
-
-  --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
-  --transition-base: 250ms cubic-bezier(0.4, 0, 0.2, 1);
-  --transition-slow: 350ms cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-* { box-sizing: border-box; }
-
-.app-container {
+/* 全局样式优化 */
+.home-container {
   display: flex;
   flex-direction: column;
   height: 100vh;
-  font-family: var(--font-sans);
-  background-color: var(--bg-color);
-  color: var(--text-main);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  background: linear-gradient(135deg, #f5f7fa 0%, #e4e7ed 100%);
+  color: #2c3e50;
 }
 
-/* ================== Navbar ================== */
-.navbar {
-  display: flex; justify-content: space-between; align-items: center; padding: 0 32px;
-  height: 70px; background-color: var(--white); box-shadow: var(--shadow-sm);
-  z-index: 50; border-bottom: 1px solid var(--border-color); flex-shrink: 0;
-}
-.navbar-brand { display: flex; align-items: center; gap: 12px; }
-.logo-icon {
-  width: 40px; height: 40px; background: var(--primary-color); color: white;
-  border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 24px;
-}
-.brand-name { font-size: 20px; font-weight: 700; color: var(--text-main); margin: 0; }
-.navbar-user { display: flex; align-items: center; gap: 20px; }
-.user-info { display: flex; align-items: center; gap: 10px; }
-.avatar {
-  width: 32px; height: 32px; background-color: #e0e7ff; color: var(--primary-color);
-  border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 600;
-}
-.username { font-size: 14px; font-weight: 500; }
-.btn-logout {
-  width: 36px; height: 36px; border-radius: 8px; border: 1px solid var(--border-color);
-  background: white; color: var(--text-sub); cursor: pointer; display: flex; align-items: center; justify-content: center;
-}
-.btn-logout:hover { background-color: #fef2f2; color: #ef4444; border-color: #fecaca; }
-
-/* ================== Sidebar ================== */
-.main-layout { display: flex; flex: 1; overflow: hidden; }
-.sidebar {
-  width: 240px; background-color: var(--white); border-right: 1px solid var(--border-color);
-  padding: 24px 16px; flex-shrink: 0;
+.main-content {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  background: #fff;
+  border-radius: 12px;
+  margin: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
 }
 
-/* ================== Conversation Sidebar ================== */
+/* 会话侧边栏优化 */
 .conversation-sidebar {
-  width: 300px;
-  box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.08);
-  background-color: var(--bg-elevated);
-  border-right: 1px solid var(--border-color);
+  background: #ffffff;
+  border-right: 1px solid #e8ebf0;
   display: flex;
   flex-direction: column;
-  flex-shrink: 0;
-  overflow: hidden;
-  transition: width var(--transition-base);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Section Common Styles */
 .section-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 20px 24px;
-  border-bottom: 1px solid var(--border-color);
-  background-color: var(--bg-elevated);
+  padding: 20px 16px;
+  background: linear-gradient(90deg, #f8fafc 0%, #ffffff 100%);
+  border-bottom: 1px solid #e8ebf0;
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 
 .section-header h3 {
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--text-main);
   margin: 0;
-  letter-spacing: 0.01em;
+  font-size: 16px;
+  font-weight: 600;
+  color: #1a1a1a;
+  letter-spacing: 0.5px;
 }
 
-/* Conversations Section */
-.conversations-section {
-  flex: 1;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
+.btn-new-conversation {
+  padding: 6px 12px;
+  font-size: 12px;
+  border-radius: 20px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: none;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
+  transition: all 0.3s ease;
+}
+
+.btn-new-conversation:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
 }
 
 .conversations-list {
   flex: 1;
   overflow-y: auto;
   padding: 12px;
+  background: #fafbfd;
 }
 
 .conversations-list::-webkit-scrollbar {
-  width: 8px;
+  width: 4px;
 }
 
 .conversations-list::-webkit-scrollbar-track {
-  background: transparent;
+  background: #f1f3f9;
 }
 
 .conversations-list::-webkit-scrollbar-thumb {
-  background-color: var(--border-color);
-  border-radius: var(--radius-full);
-  transition: background-color var(--transition-fast);
+  background: #c1c9d2;
+  border-radius: 2px;
 }
 
-.conversations-list::-webkit-scrollbar-thumb:hover {
-  background-color: var(--border-hover);
-}
-
-/* Loading Conversations */
-.loading-conversations {
+.loading-conversations,
+.no-conversations {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 48px 24px;
-  gap: 16px;
-  color: var(--text-tertiary);
+  padding: 60px 16px;
+  text-align: center;
+  color: #8a94a6;
 }
 
-.spinner.small {
-  width: 24px;
-  height: 24px;
-  border: 3px solid var(--border-color);
-  border-top-color: var(--primary-color);
-  border-radius: 50%;
+.loading-conversations .el-icon {
+  margin-bottom: 16px;
+  font-size: 28px;
+  color: #667eea;
   animation: spin 1s linear infinite;
 }
 
-/* No Conversations */
-.no-conversations {
-  text-align: center;
-  padding: 60px 24px;
-  color: var(--text-tertiary);
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 .no-conversations p {
   margin-bottom: 20px;
   font-size: 14px;
+  color: #8a94a6;
 }
 
-.no-conversations .btn-small {
-  margin-top: 16px;
-  padding: 10px 20px;
-  background: var(--primary-color);
-  color: var(--text-inverse);
-  border: none;
-  border-radius: var(--radius-md);
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all var(--transition-base);
-  box-shadow: var(--shadow-sm);
-}
-
-.no-conversations .btn-small:hover {
-  background: #dfdfdf;
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-md);
-}
-
-/* Conversation Item */
 .conversation-item {
   display: flex;
-  flex-direction: column;
-  padding: 16px;
-  border-radius: var(--radius-lg);
+  padding: 14px;
+  margin-bottom: 10px;
+  border-radius: 12px;
+  background: #ffffff;
+  border: 1px solid #e8ebf0;
   cursor: pointer;
-  transition: all var(--transition-base);
-  margin-bottom: 8px;
-  background: var(--bg-color);
-  border: 2px solid var(--border-color);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   overflow: hidden;
 }
@@ -1129,347 +945,233 @@ export default {
 .conversation-item::before {
   content: '';
   position: absolute;
-  top: 0;
   left: 0;
-  width: 4px;
+  top: 0;
   height: 100%;
+  width: 3px;
   background: transparent;
-  transition: background-color var(--transition-base);
+  transition: all 0.3s ease;
 }
 
 .conversation-item:hover {
-  background: var(--bg-hover);
-  border-color: var(--border-hover);
+  background: linear-gradient(90deg, #f8fafc 0%, #ffffff 100%);
+  border-color: #d0d7e3;
   transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
 }
 
 .conversation-item:hover::before {
-  background: var(--primary-light);
+  background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
 }
 
 .conversation-item.active {
-  background: var(--primary-light);
-  border-color: var(--primary-color);
-  box-shadow: var(--shadow-sm);
+  background: linear-gradient(90deg, rgba(102, 126, 234, 0.08) 0%, rgba(118, 75, 162, 0.08) 100%);
+  border-color: #667eea;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.1);
 }
 
 .conversation-item.active::before {
-  background: var(--primary-color);
+  background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
 }
 
 .conversation-info {
   flex: 1;
-  margin-bottom: 12px;
-  position: relative;
-  z-index: 1;
+  min-width: 0;
+  margin-right: 12px;
 }
 
 .conversation-title {
   font-size: 14px;
   font-weight: 600;
-  color: var(--text-main);
+  color: #1a1a1a;
   margin-bottom: 6px;
+  line-height: 1.4;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  line-height: 1.4;
 }
 
 .conversation-preview {
-  font-size: 13px;
-  color: var(--text-secondary);
-  white-space: nowrap;
+  font-size: 12px;
+  color: #8a94a6;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
   text-overflow: ellipsis;
-  line-height: 1.4;
 }
 
 .conversation-actions {
   display: flex;
+  flex-direction: column;
+  align-items: flex-end;
   justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  position: relative;
-  z-index: 1;
+  min-width: 60px;
 }
 
 .conversation-time {
-  font-size: 12px;
-  color: var(--text-tertiary);
-  font-feature-settings: "tnum";
+  font-size: 11px;
+  color: #b0b8c5;
+  margin-bottom: 8px;
+  white-space: nowrap;
 }
 
-/* Delete Conversation Button */
 .btn-delete-conversation {
+  padding: 4px;
   width: 28px;
   height: 28px;
-  border: none;
-  background: transparent;
-  color: var(--text-tertiary);
-  cursor: pointer;
-  border-radius: var(--radius-sm);
-  font-size: 14px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all var(--transition-fast);
-  flex-shrink: 0;
+  border: 1px solid #ffe0e0;
+  background: #fff5f5;
+  transition: all 0.2s ease;
 }
 
 .btn-delete-conversation:hover {
-  background: rgba(239, 68, 68, 0.1);
-  color: var(--danger-color);
+  background: #f56565;
+  border-color: #f56565;
   transform: scale(1.1);
 }
 
-/* New Conversation Button */
-.btn-new-conversation {
-  padding: 8px 16px;
-  background: var(--primary-color);
-  color: var(--text-inverse);
-  background: #efefef;
-  border-radius: var(--radius-md);
-  font-size: 15px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all var(--transition-base);
-  box-shadow: var(--shadow-sm);
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.btn-new-conversation:hover {
-  background: #dfdfdf;
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-md);
-}
-
-/* 移除重复的 + 符号，因为按钮文本中已有 + */
-.btn-new-conversation::before {
-  content: '';
-}
-
-/* Model Selector Section */
-.model-selector-section {
-  border-top: 1px solid var(--border-color);
-  padding: 20px 24px;
-  background-color: var(--bg-elevated);
-}
-
-.model-selector-section .section-header {
-  padding: 0 0 16px 0;
-  border-bottom: none;
-}
-
-.model-selector {
-  position: relative;
-}
-
-.model-selector .agent-select {
-  width: 100%;
-  padding: 12px 16px;
-  padding-right: 40px;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  font-size: 14px;
-  background: var(--bg-elevated);
-  color: var(--text-main);
-  cursor: pointer;
-  outline: none;
-  transition: all var(--transition-base);
-  appearance: none;
-  font-family: var(--font-sans);
-}
-
-.model-selector .agent-select:hover {
-  border-color: var(--border-hover);
-  background: var(--bg-hover);
-}
-
-.model-selector .agent-select:focus {
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
-  background: var(--bg-elevated);
-}
-
-.model-selector .select-arrow {
-  position: absolute;
-  right: 16px;
-  top: 50%;
-  transform: translateY(-50%);
-  pointer-events: none;
-  font-size: 12px;
-  color: var(--text-tertiary);
-  transition: transform var(--transition-fast);
-}
-
-.model-selector .agent-select:focus + .select-arrow {
-  transform: translateY(-50%) rotate(180deg);
-}
-
-/* Header Actions */
-.header-actions {
-  display: flex; gap: 12px;
-}
-
-.header-actions .btn-small {
-  padding: 6px 12px;
-  background: var(--primary-color);
+.btn-delete-conversation:hover :deep(svg) {
   color: white;
-  border: none;
-  border-radius: 6px;
-  font-size: 12px;
-  cursor: pointer;
-  transition: all 0.2s;
 }
 
-.header-actions .btn-small:hover {
-  background: var(--primary-hover);
-}
-.menu-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; }
-.menu-link {
-  display: flex; align-items: center; gap: 12px; padding: 12px 16px;
-  text-decoration: none; color: #4b5563; font-size: 15px; font-weight: 500;
-  border-radius: 8px; transition: all 0.2s;
-}
-.menu-link:hover { background-color: #f3f4f6; color: var(--text-main); }
-.menu-link.active { background-color: #e0e7ff; color: var(--primary-color); font-weight: 600; }
-
-/* ================== Chat Content ================== */
+/* 聊天内容区优化 */
 .chat-content {
-  flex: 1;
   display: flex;
   flex-direction: column;
-  background: linear-gradient(180deg, var(--bg-color) 0%, var(--bg-elevated) 100%);
+  background: linear-gradient(180deg, #ffffff 0%, #fafbfd 100%);
   position: relative;
 }
 
 .chat-header {
-  height: 80px;
-  background-color: var(--bg-elevated);
-  border-bottom: 1px solid var(--border-color);
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0 32px;
-  flex-shrink: 0;
-  backdrop-filter: blur(10px);
+  padding: 0 28px;
+  background: #ffffff;
+  border-bottom: 1px solid #e8ebf0;
+  height: 72px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
   position: sticky;
   top: 0;
-  z-index: 20;
+  z-index: 10;
 }
 
 .header-info h2 {
+  margin: 0 0 6px 0;
   font-size: 20px;
   font-weight: 700;
-  margin: 0 0 6px 0;
-  color: var(--text-main);
-  line-height: 1.3;
+  color: #1a1a1a;
+  letter-spacing: -0.3px;
 }
 
 .header-info .subtitle {
-  font-size: 13px;
-  color: var(--text-secondary);
   margin: 0;
-  font-weight: 400;
+  font-size: 13px;
+  color: #8a94a6;
+  letter-spacing: 0.3px;
 }
 
-/* Chat Viewport */
+.btn-edit-settings {
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: 1px solid #e8ebf0;
+  background: #ffffff;
+  color: #667eea;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.btn-edit-settings:hover {
+  background: #667eea;
+  color: white;
+  border-color: #667eea;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+}
+
 .chat-viewport {
   flex: 1;
   overflow-y: auto;
-  padding: 32px;
-  display: flex;
-  flex-direction: column;
-  scroll-behavior: smooth;
+  padding: 28px;
+  background: linear-gradient(180deg, #fafbfd 0%, #ffffff 100%);
 }
 
 .chat-viewport::-webkit-scrollbar {
-  width: 8px;
+  width: 6px;
 }
 
 .chat-viewport::-webkit-scrollbar-track {
-  background: transparent;
+  background: #f1f3f9;
 }
 
 .chat-viewport::-webkit-scrollbar-thumb {
-  background-color: var(--border-color);
-  border-radius: var(--radius-full);
-  transition: background-color var(--transition-fast);
+  background: #c1c9d2;
+  border-radius: 3px;
 }
 
-.chat-viewport::-webkit-scrollbar-thumb:hover {
-  background-color: var(--border-hover);
-}
-
-/* Messages States */
 .state-container {
-  flex: 1;
   display: flex;
   flex-direction: column;
-  justify-content: center;
   align-items: center;
-  color: var(--text-tertiary);
-  text-align: center;
-  padding: 60px 32px;
+  justify-content: center;
+  height: 100%;
+  color: #8a94a6;
+}
+
+.state-container .el-icon {
+  margin-bottom: 20px;
+  font-size: 36px;
+  color: #667eea;
+  opacity: 0.8;
 }
 
 .state-container.empty {
-  animation: fadeIn 0.5s ease-out;
+  animation: fadeInUp 0.6s ease-out;
 }
 
 .empty-icon {
-  font-size: 64px;
-  margin-bottom: 24px;
-  opacity: 0.8;
-  animation: bounce 2s infinite;
-}
-
-@keyframes bounce {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-10px); }
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.spinner {
-  width: 40px;
-  height: 40px;
-  border: 3px solid var(--border-color);
-  border-top-color: var(--primary-color);
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
+  font-size: 56px;
   margin-bottom: 20px;
+  opacity: 0.9;
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.1));
 }
 
-/* Messages List */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 .messages-list {
   display: flex;
   flex-direction: column;
-  gap: 32px;
-  padding-bottom: 40px;
+  gap: 28px;
+  max-width: 900px;
+  margin: 0 auto;
+  width: 100%;
 }
 
 .message-row {
   display: flex;
   gap: 16px;
-  max-width: 85%;
-  animation: messageAppear 0.3s ease-out;
+  animation: messageAppear 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 @keyframes messageAppear {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(20px) scale(0.98);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateY(0) scale(1);
   }
 }
 
@@ -1482,36 +1184,36 @@ export default {
   align-self: flex-start;
 }
 
-.chat-avatar {
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  object-fit: cover;
-  box-shadow: var(--shadow-sm);
-  background: var(--bg-elevated);
-  border: 2px solid var(--bg-elevated);
+.avatar-col {
   flex-shrink: 0;
-  transition: transform var(--transition-fast);
 }
 
-.message-row:hover .chat-avatar {
+.chat-avatar {
+  border: 2px solid white;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+.chat-avatar:hover {
   transform: scale(1.05);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
 }
 
 .bubble-col {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  max-width: 100%;
+  gap: 6px;
+  max-width: calc(100% - 60px);
 }
 
 .message-meta {
   display: flex;
-  gap: 12px;
+  gap: 10px;
   align-items: center;
-  font-size: 13px;
-  color: var(--text-tertiary);
-  padding: 0 4px;
+  font-size: 12px;
+  color: #8a94a6;
+  padding: 0 6px;
+  letter-spacing: 0.3px;
 }
 
 .message-row.user .message-meta {
@@ -1520,365 +1222,453 @@ export default {
 
 .sender-name {
   font-weight: 600;
-  color: var(--text-secondary);
+  color: #4a5568;
 }
 
 .time {
-  font-size: 12px;
-  font-feature-settings: "tnum";
-  opacity: 0.8;
+  font-size: 11px;
+  opacity: 0.7;
+  font-family: 'SF Mono', Monaco, 'Cascadia Mono', monospace;
 }
 
 .message-bubble {
   padding: 16px 20px;
-  font-size: 15px;
+  border-radius: 20px;
+  font-size: 14.5px;
   line-height: 1.6;
   word-wrap: break-word;
   position: relative;
-  transition: all var(--transition-base);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  animation: bubbleRise 0.3s ease-out;
+}
+
+@keyframes bubbleRise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .message-row.user .message-bubble {
-  background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
-  color: var(--text-inverse);
-  border-radius: 24px 24px 8px 24px;
-  box-shadow: var(--shadow-md);
-}
-
-.message-row.user .message-bubble::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  right: -8px;
-  width: 16px;
-  height: 16px;
-  background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
-  clip-path: polygon(0 0, 100% 0, 100% 100%);
-  border-radius: 0 0 0 8px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-radius: 20px 20px 6px 20px;
+  box-shadow: 0 4px 20px rgba(102, 126, 234, 0.3);
 }
 
 .message-row.assistant .message-bubble {
-  background-color: var(--assistant-bubble);
-  color: var(--text-main);
-  border: 1px solid var(--border-color);
-  border-radius: 24px 24px 24px 8px;
-  box-shadow: var(--shadow-sm);
+  background: white;
+  color: #2d3748;
+  border: 1px solid #e8ebf0;
+  border-radius: 20px 20px 20px 6px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
 }
 
 .message-row.assistant .message-bubble::before {
   content: '';
   position: absolute;
-  bottom: 0;
   left: -8px;
-  width: 16px;
-  height: 16px;
-  background-color: var(--assistant-bubble);
-  border-left: 1px solid var(--border-color);
-  border-bottom: 1px solid var(--border-color);
-  clip-path: polygon(0 0, 100% 100%, 0 100%);
-  border-radius: 0 0 8px 0;
+  top: 16px;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 8px 8px 8px 0;
+  border-color: transparent #e8ebf0 transparent transparent;
 }
 
-.message-row.user:hover .message-bubble {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-lg);
+.message-row.assistant .message-bubble::after {
+  content: '';
+  position: absolute;
+  left: -7px;
+  top: 16px;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 8px 8px 8px 0;
+  border-color: transparent white transparent transparent;
 }
 
-.message-row.assistant:hover .message-bubble {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
-  border-color: var(--border-hover);
-}
-
-/* ================== Chat Input Area (优化重点) ================== */
+/* 输入框区域优化 */
 .chat-input-area {
-  padding: 32px;
-  box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.08);
-  background-color: var(--bg-elevated);
-  border-top: 1px solid var(--border-color);
-  z-index: 30;
+  padding: 20px 28px;
+  background: #ffffff;
+  border-top: 1px solid #e8ebf0;
+  box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.04);
   position: sticky;
   bottom: 0;
+  z-index: 10;
 }
 
 .input-wrapper {
   display: flex;
-  align-items: center;
-  background-color: var(--bg-color);
-  border: 2px solid var(--border-color);
-  border-radius: var(--radius-xl);
-  padding: 8px 8px 8px 24px;
-  box-shadow: var(--shadow-md);
-  transition: all var(--transition-base);
-  position: relative;
-  overflow: hidden;
+  align-items: flex-end;
+  gap: 16px;
+  background: #ffffff;
+  border: 2px solid #e8ebf0;
+  border-radius: 16px;
+  padding: 12px 16px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
-.input-wrapper::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
-  transform: scaleX(0);
-  transform-origin: left;
-  transition: transform var(--transition-base);
+.input-wrapper:hover {
+  border-color: #c1c9d2;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
 }
 
 .input-wrapper:focus-within {
-  border-color: var(--primary-color);
-  background-color: var(--bg-elevated);
-  box-shadow: var(--shadow-lg);
-  transform: translateY(-2px);
-}
-
-.input-wrapper:focus-within::before {
-  transform: scaleX(1);
+  border-color: #667eea;
+  box-shadow: 0 4px 20px rgba(102, 126, 234, 0.15);
+  transform: translateY(-1px);
 }
 
 .input-wrapper.sending {
   opacity: 0.8;
-}
-
-.input-wrapper.sending::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: linear-gradient(90deg, transparent, rgba(99, 102, 241, 0.1), transparent);
-  animation: shimmer 2s infinite;
-}
-
-@keyframes shimmer {
-  0% { transform: translateX(-100%); }
-  100% { transform: translateX(100%); }
+  background: #f8fafc;
 }
 
 .message-input {
   flex: 1;
   border: none;
   background: transparent;
-  font-size: 16px;
-  color: var(--text-main);
-  padding: 12px 0;
+  font-size: 14.5px;
+  color: #2d3748;
   outline: none;
-  font-family: var(--font-sans);
-  line-height: 1.5;
-  min-height: 24px;
-  max-height: 120px;
   resize: none;
-  overflow-y: auto;
+  min-height: 26px;
+  max-height: 120px;
+  line-height: 1.5;
+  font-family: inherit;
 }
 
 .message-input::placeholder {
-  color: var(--text-tertiary);
-  font-weight: 400;
-}
-
-.message-input:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
+  color: #a0aec0;
+  opacity: 0.7;
 }
 
 .btn-send {
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
-  color: var(--text-inverse);
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   border: none;
-  font-size: 20px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all var(--transition-base);
-  box-shadow: var(--shadow-md);
-  position: relative;
-  overflow: hidden;
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+  transition: all 0.3s ease;
   flex-shrink: 0;
-  margin-left: 8px;
-}
-
-.btn-send::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: linear-gradient(135deg, var(--primary-hover), var(--secondary-color));
-  opacity: 0;
-  transition: opacity var(--transition-base);
-}
-
-.btn-send:hover:not(:disabled)::before {
-  opacity: 1;
 }
 
 .btn-send:hover:not(:disabled) {
   transform: translateY(-2px) scale(1.05);
-  box-shadow: var(--shadow-xl);
-}
-
-.btn-send:active:not(:disabled) {
-  transform: translateY(0) scale(0.98);
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
 }
 
 .btn-send:disabled {
-  background: var(--border-color);
-  color: var(--text-tertiary);
+  background: #c1c9d2;
   cursor: not-allowed;
-  box-shadow: none;
   transform: none;
+  box-shadow: none;
 }
 
-.btn-send span {
-  position: relative;
-  z-index: 1;
+/* 设置对话框样式优化 */
+.settings-dialog :deep(.el-dialog) {
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+}
+
+.settings-dialog :deep(.el-dialog__header) {
+  background: linear-gradient(90deg, #f8fafc 0%, #ffffff 100%);
+  border-bottom: 1px solid #e8ebf0;
+  padding: 20px 24px;
+  margin: 0;
+}
+
+.settings-dialog :deep(.el-dialog__title) {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1a1a1a;
+}
+
+.dialog-tabs {
+  margin-bottom: 8px;
+}
+
+.dialog-tabs :deep(.el-tabs__header) {
+  margin: 0 0 20px 0;
+  padding: 0 24px;
+}
+
+.dialog-tabs :deep(.el-tabs__nav-wrap::after) {
+  height: 1px;
+  background: #e8ebf0;
+}
+
+.dialog-tabs :deep(.el-tabs__item) {
+  padding: 0 16px;
+  height: 48px;
+  font-weight: 500;
+  color: #8a94a6;
+  transition: all 0.3s ease;
+}
+
+.dialog-tabs :deep(.el-tabs__item:hover) {
+  color: #667eea;
+}
+
+.dialog-tabs :deep(.el-tabs__item.is-active) {
+  color: #667eea;
+  font-weight: 600;
+}
+
+.dialog-tabs :deep(.el-tabs__active-bar) {
+  background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+  height: 3px;
+  border-radius: 3px 3px 0 0;
+}
+
+.form-section {
+  margin-bottom: 32px;
+  padding: 0 24px;
+}
+
+.section-title {
   display: flex;
   align-items: center;
+  gap: 10px;
+  margin: 0 0 20px 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #1a1a1a;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e8ebf0;
+}
+
+.section-title .el-icon {
+  font-size: 18px;
+  color: #667eea;
+}
+
+.form-hint {
+  display: block;
+  margin-top: 6px;
+  font-size: 12px;
+  color: #8a94a6;
+  line-height: 1.4;
+}
+
+.slider-container {
+  width: 100%;
+  padding: 8px 0;
+}
+
+.slider-container :deep(.el-slider__runway) {
+  height: 6px;
+  background: #e8ebf0;
+  border-radius: 3px;
+}
+
+.slider-container :deep(.el-slider__bar) {
+  background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+  height: 6px;
+  border-radius: 3px;
+}
+
+.slider-container :deep(.el-slider__button) {
+  width: 20px;
+  height: 20px;
+  border: 3px solid #667eea;
+  background: white;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+  transition: all 0.2s ease;
+}
+
+.slider-container :deep(.el-slider__button:hover) {
+  transform: scale(1.2);
+}
+
+.slider-labels {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 12px;
+  font-size: 12px;
+  color: #8a94a6;
+}
+
+.slider-label {
+  font-weight: 500;
+}
+
+.metadata-editor {
+  border: 1px solid #e8ebf0;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #f8fafc;
+}
+
+.editor-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: #ffffff;
+  border-bottom: 1px solid #e8ebf0;
+}
+
+.editor-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #4a5568;
+}
+
+.editor-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: #ffffff;
+  border-top: 1px solid #e8ebf0;
+}
+
+.json-status {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 12px;
+  background: #f0f9ff;
+}
+
+.json-status.valid {
+  color: #10b981;
+  background: #ecfdf5;
+}
+
+.json-status:not(.valid) {
+  color: #f59e0b;
+  background: #fffbeb;
+}
+
+.tools-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 240px;
+  overflow-y: auto;
+  padding: 16px;
+  border: 1px solid #e8ebf0;
+  border-radius: 12px;
+  background: #f8fafc;
+}
+
+.tools-list :deep(.el-checkbox) {
+  margin-right: 0;
+  padding: 10px 12px;
+  background: white;
+  border-radius: 8px;
+  border: 1px solid #e8ebf0;
+  transition: all 0.2s ease;
+}
+
+.tools-list :deep(.el-checkbox:hover) {
+  border-color: #667eea;
+  background: rgba(102, 126, 234, 0.04);
+  transform: translateY(-1px);
+}
+
+.no-agents-available {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   justify-content: center;
+  padding: 40px 24px;
+  color: #a0aec0;
+  text-align: center;
 }
 
-.loading-dots {
-  font-size: 24px;
-  line-height: 10px;
-  letter-spacing: 2px;
-  animation: pulse 1.5s infinite;
-  position: relative;
-  top: -2px;
+.no-agents-available .el-icon {
+  font-size: 32px;
+  margin-bottom: 16px;
+  opacity: 0.6;
 }
 
-@keyframes pulse {
-  0%, 100% { opacity: 0.3; transform: scale(0.9); }
-  50% { opacity: 1; transform: scale(1.1); }
+.no-agents-available p {
+  margin: 0;
+  font-size: 14px;
 }
 
-/* 输入框滚动条样式 */
-.message-input::-webkit-scrollbar {
-  width: 6px;
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 20px 24px;
+  background: #f8fafc;
+  border-top: 1px solid #e8ebf0;
 }
 
-.message-input::-webkit-scrollbar-track {
-  background: transparent;
+.btn-outline {
+  border: 1px solid #e8ebf0;
+  color: #4a5568;
+  background: white;
+  padding: 10px 20px;
+  border-radius: 10px;
+  font-weight: 500;
+  transition: all 0.3s ease;
 }
 
-.message-input::-webkit-scrollbar-thumb {
-  background-color: var(--border-color);
-  border-radius: var(--radius-full);
+.btn-outline:hover {
+  border-color: #667eea;
+  color: #667eea;
+  background: rgba(102, 126, 234, 0.04);
+  transform: translateY(-1px);
 }
 
-.message-input::-webkit-scrollbar-thumb:hover {
-  background-color: var(--border-hover);
+.dialog-footer :deep(.el-button--primary) {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: none;
+  padding: 10px 24px;
+  border-radius: 10px;
+  font-weight: 500;
+  transition: all 0.3s ease;
 }
 
-/* ================== 响应式设计 ================== */
-@media (max-width: 1200px) {
-  .conversation-sidebar {
-    width: 280px;
-  }
-
-  .chat-header,
-  .chat-viewport,
-  .chat-input-area {
-    padding-left: 24px;
-    padding-right: 24px;
-  }
+.dialog-footer :deep(.el-button--primary:hover) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.3);
 }
 
-@media (max-width: 1024px) {
-  .conversation-sidebar {
-    width: 260px;
-  }
-
-  .sidebar {
-    width: 200px;
-    padding: 20px 12px;
-  }
-
-  .chat-header {
-    height: 70px;
-    padding: 0 24px;
-  }
-
-  .header-info h2 {
-    font-size: 18px;
-  }
-
-  .chat-viewport {
-    padding: 24px;
-  }
-
-  .chat-input-area {
-    padding: 24px;
-  }
-
-  .message-row {
-    max-width: 90%;
-  }
-}
-
-@media (max-width: 900px) {
-  .conversation-sidebar {
-    width: 240px;
-  }
-
-  .section-header {
-    padding: 16px 20px;
-  }
-
-  .conversations-list {
-    padding: 8px;
-  }
-
-  .conversation-item {
-    padding: 12px;
-  }
-
-  .model-selector-section {
-    padding: 16px 20px;
-  }
-}
-
+/* 响应式设计优化 */
 @media (max-width: 768px) {
-  .sidebar {
-    display: none;
+  .main-content {
+    margin: 4px;
+    border-radius: 8px;
   }
 
   .conversation-sidebar {
+    width: 100% !important;
     position: fixed;
     left: 0;
-    top: 70px;
+    top: 0;
     bottom: 0;
-    z-index: 40;
+    z-index: 1000;
     transform: translateX(-100%);
-    transition: transform var(--transition-base);
-    box-shadow: var(--shadow-xl);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 0 40px rgba(0, 0, 0, 0.15);
   }
 
   .conversation-sidebar.mobile-open {
     transform: translateX(0);
   }
 
-  .chat-header,
-  .chat-viewport,
-  .chat-input-area {
-    padding-left: 16px;
-    padding-right: 16px;
-  }
-
   .chat-header {
-    height: 60px;
     padding: 0 16px;
+    height: 60px;
   }
 
   .header-info h2 {
-    font-size: 16px;
+    font-size: 17px;
     margin-bottom: 4px;
   }
 
@@ -1887,26 +1677,21 @@ export default {
   }
 
   .chat-viewport {
-    padding: 20px 16px;
+    padding: 16px;
   }
 
   .chat-input-area {
-    padding: 20px 16px;
+    padding: 16px;
   }
 
   .input-wrapper {
-    padding: 6px 6px 6px 16px;
-  }
-
-  .message-input {
-    font-size: 15px;
-    padding: 10px 0;
+    padding: 10px 14px;
+    gap: 12px;
   }
 
   .btn-send {
-    width: 44px;
-    height: 44px;
-    font-size: 18px;
+    width: 40px;
+    height: 40px;
   }
 
   .message-row {
@@ -1914,482 +1699,69 @@ export default {
     gap: 12px;
   }
 
-  .chat-avatar {
-    width: 36px;
-    height: 36px;
-  }
-
   .message-bubble {
     padding: 14px 16px;
     font-size: 14px;
   }
 
-  .messages-list {
-    gap: 24px;
+  .settings-dialog :deep(.el-dialog) {
+    width: 90% !important;
+    margin: 20px auto !important;
+    border-radius: 12px;
   }
 
-  .state-container {
-    padding: 40px 16px;
+  .form-section {
+    padding: 0 16px;
   }
 
-  .empty-icon {
-    font-size: 48px;
-    margin-bottom: 16px;
-  }
-
-  .spinner {
-    width: 32px;
-    height: 32px;
-  }
-
-  /* 移动端菜单按钮 */
-  .mobile-menu-toggle {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 40px;
-    height: 40px;
-    border: none;
-    background: transparent;
-    color: var(--text-main);
-    cursor: pointer;
-    border-radius: var(--radius-md);
-    margin-right: 12px;
-    transition: all var(--transition-fast);
-  }
-
-  .mobile-menu-toggle:hover {
-    background: var(--bg-hover);
-  }
-
-  .mobile-menu-toggle span {
-    font-size: 20px;
-  }
-
-  .header-actions {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .header-actions .btn-small {
-    padding: 6px 12px;
-    font-size: 12px;
+  .dialog-tabs :deep(.el-tabs__header) {
+    padding: 0 16px;
   }
 }
 
 @media (max-width: 480px) {
-  .chat-header {
-    padding: 0 12px;
+  .home-container {
+    background: #f8fafc;
   }
 
-  .chat-viewport {
-    padding: 16px 12px;
+  .main-content {
+    margin: 0;
+    border-radius: 0;
+    box-shadow: none;
   }
 
-  .chat-input-area {
-    padding: 16px 12px;
+  .section-header {
+    padding: 16px;
   }
 
-  .input-wrapper {
-    border-radius: var(--radius-lg);
+  .btn-new-conversation span {
+    display: none;
   }
 
-  .message-input {
-    font-size: 14px;
+  .btn-new-conversation .el-icon {
+    margin: 0 !important;
   }
 
-  .message-row {
-    max-width: 100%;
+  .conversations-list {
+    padding: 8px;
+  }
+
+  .conversation-item {
+    padding: 12px;
+    margin-bottom: 8px;
+  }
+
+  .conversation-preview {
+    -webkit-line-clamp: 1;
+  }
+
+  .messages-list {
+    gap: 20px;
   }
 
   .message-bubble {
     padding: 12px 14px;
-    font-size: 13px;
+    border-radius: 16px;
   }
-
-  .sender-name {
-    font-size: 12px;
-  }
-
-  .time {
-    font-size: 11px;
-  }
-}
-
-/* 深色模式支持 */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg-color: #0f172a;
-    --bg-elevated: #1e293b;
-    --bg-hover: #334155;
-    --bg-active: #475569;
-
-    --text-main: #f1f5f9;
-    --text-secondary: #cbd5e1;
-    --text-tertiary: #94a3b8;
-
-    --border-color: #334155;
-    --border-hover: #475569;
-    --border-active: #64748b;
-
-    --assistant-bubble: #1e293b;
-
-    --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.3), 0 1px 2px 0 rgba(0, 0, 0, 0.2);
-    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
-    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.2);
-  }
-
-  .chat-content {
-    background: linear-gradient(180deg, var(--bg-color) 0%, var(--bg-elevated) 100%);
-  }
-
-  .message-row.assistant .message-bubble {
-    border-color: var(--border-color);
-  }
-
-  .input-wrapper {
-    background-color: var(--bg-elevated);
-  }
-}
-
-/* ================== 参数设置对话框样式 ================== */
-.settings-dialog-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(135, 135, 135, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-  backdrop-filter: blur(4px);
-  animation: fadeIn 0.2s ease-out;
-}
-
-.settings-dialog {
-  background-color: var(--bg-elevated);
-  border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-xl);
-  width: 90%;
-  max-width: 500px;
-  max-height: 90vh;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  animation: slideUp 0.3s ease-out;
-}
-
-@keyframes slideUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.dialog-header {
-  padding: 24px 32px;
-  border-bottom: 1px solid var(--border-color);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background-color: var(--bg-elevated);
-}
-
-.dialog-header h3 {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 600;
-  color: var(--text-main);
-}
-
-.btn-close {
-  width: 32px;
-  height: 32px;
-  border: none;
-  background: transparent;
-  color: var(--text-tertiary);
-  font-size: 24px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--radius-sm);
-  transition: all var(--transition-fast);
-}
-
-.btn-close:hover {
-  background-color: var(--bg-hover);
-  color: var(--text-secondary);
-}
-
-.dialog-body {
-  padding: 32px;
-  overflow-y: auto;
-  flex: 1;
-}
-
-.dialog-footer {
-  padding: 24px 32px;
-  border-top: 1px solid var(--border-color);
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  background-color: var(--bg-elevated);
-}
-
-.form-group {
-  margin-bottom: 24px;
-}
-
-.form-group label {
-  display: block;
-  margin-bottom: 8px;
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--text-main);
-}
-
-.form-input,
-.form-select,
-.form-textarea {
-  width: 100%;
-  padding: 12px 16px;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  font-size: 14px;
-  font-family: var(--font-sans);
-  background-color: var(--bg-color);
-  color: var(--text-main);
-  transition: all var(--transition-base);
-}
-
-.form-input:focus,
-.form-select:focus,
-.form-textarea:focus {
-  outline: none;
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
-  background-color: var(--bg-elevated);
-}
-
-.form-textarea {
-  resize: vertical;
-  min-height: 80px;
-}
-
-.form-hint {
-  display: block;
-  margin-top: 6px;
-  font-size: 12px;
-  color: var(--text-tertiary);
-}
-
-.form-row {
-  display: flex;
-  gap: 16px;
-}
-
-.form-row .half {
-  flex: 1;
-}
-
-.form-range {
-  width: 100%;
-  height: 6px;
-  margin: 12px 0;
-  background: var(--border-color);
-  border-radius: var(--radius-full);
-  outline: none;
-  -webkit-appearance: none;
-}
-
-.form-range::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  background: var(--primary-color);
-  cursor: pointer;
-  border: 2px solid var(--white);
-  box-shadow: var(--shadow-sm);
-}
-
-.range-labels {
-  display: flex;
-  justify-content: space-between;
-  font-size: 12px;
-  color: var(--text-tertiary);
-  margin-top: 4px;
-}
-
-.agent-selection {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.selected-agents {
-  flex: 1;
-  padding: 12px 16px;
-  background-color: var(--bg-color);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  font-size: 14px;
-}
-
-.no-agents {
-  color: var(--text-tertiary);
-}
-
-.agent-count {
-  color: var(--text-secondary);
-}
-
-.btn-select-agents {
-  padding: 10px 16px;
-  background-color: var(--primary-light);
-  color: var(--primary-color);
-  border: 1px solid var(--primary-light);
-  border-radius: var(--radius-md);
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all var(--transition-base);
-}
-
-.btn-select-agents:hover {
-  background-color: var(--primary-color);
-  color: var(--text-inverse);
-}
-
-.btn-secondary {
-  padding: 10px 20px;
-  background-color: transparent;
-  color: var(--text-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all var(--transition-base);
-}
-
-.btn-secondary:hover {
-  background-color: var(--bg-hover);
-  border-color: var(--border-hover);
-}
-
-.btn-primary {
-  padding: 10px 20px;
-  background-color: var(--primary-color);
-  color: var(--text-inverse);
-  border: none;
-  border-radius: var(--radius-md);
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all var(--transition-base);
-  box-shadow: var(--shadow-sm);
-}
-
-.btn-primary:hover {
-  background-color: var(--primary-hover);
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-md);
-}
-
-.btn-primary:active {
-  transform: translateY(0);
-}
-
-.btn-edit-settings {
-  padding: 8px 16px;
-  background-color: var(--primary-light);
-  color: var(--primary-color);
-  border: 1px solid var(--primary-light);
-  border-radius: var(--radius-md);
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all var(--transition-base);
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.btn-edit-settings:hover {
-  background-color: var(--primary-color);
-  color: var(--text-inverse);
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-sm);
-}
-
-/* 工具列表样式 */
-.tool-list {
-  margin: 20px;
-  padding: 10px;
-  background-color: var(--bg-elevated);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-}
-.tool-list h3 {
-  font-size: 16px;
-  font-weight: bold;
-  margin-bottom: 10px;
-}
-.tool-list ul {
-  list-style: none;
-  padding: 0;
-}
-.tool-list li {
-  padding: 5px 0;
-  border-bottom: 1px solid var(--border-hover);
-}
-.tool-list li:last-child {
-  border-bottom: none;
-}
-/* ================== 响应式调整 ================== */
-@media (max-width: 768px) {
-  .settings-dialog {
-    width: 95%;
-    max-height: 85vh;
-  }
-
-  .dialog-header,
-  .dialog-body,
-  .dialog-footer {
-    padding: 20px;
-  }
-
-  .form-row {
-    flex-direction: column;
-    gap: 0;
-  }
-
-  .form-row .half {
-    margin-bottom: 16px;
-  }
-
-  .agent-selection {
-    flex-direction: column;
-    align-items: stretch;
-  }
-}
-.tools-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.tool-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
 }
 </style>

@@ -57,14 +57,16 @@
             <!-- 分类 -->
             <div class="form-group">
               <label class="form-label">分类 <span class="required">*</span></label>
-              <input
-                type="text"
+              <select
                 v-model="formData.category"
                 class="form-input"
-                placeholder="例如：助手、客服、教育等"
                 required
-              />
-              <p class="form-hint">为智能体设置分类标签，便于管理</p>
+              >
+                <option value="">请选择分类</option>
+                <option value="tool">tool</option>
+                <option value="chat-model">chat-model</option>
+              </select>
+              <p class="form-hint">请选择分类类型（tool 或 chat-model）</p>
             </div>
 
             <!-- 头像URL（可选） -->
@@ -250,7 +252,7 @@ export default {
         const requestData = {
           name: this.formData.name.trim(),
           description: this.formData.description.trim(),
-          avatar: this.formData.avatar.trim() || '',
+          avatar: this.formData.avatar.trim() || 'https://cdn.apifox.com/app/project-icon/custom/20250310/f8eb9d9d-5941-45e0-a9ae-c76ec931ee74.png',
           category: this.formData.category.trim() || '',
           url: this.formData.url.trim(),
           connectType: this.formData.connectType || 'stream-http',

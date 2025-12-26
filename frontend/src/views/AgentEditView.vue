@@ -50,13 +50,10 @@
                  <div class="form-row">
                   <div class="form-group half">
                     <label class="form-label">分类</label>
-                    <input
-                      type="text"
-                      v-model="formData.category"
-                      class="form-input"
-                      placeholder="例如：客服"
-                      disabled
-                    />
+                    <el-select v-model="formData.category" placeholder="请选择分类" class="form-input">
+                      <el-option label="工具 (tool)" value="tool" />
+                      <el-option label="对话模型 (chat-model)" value="chat-model" />
+                    </el-select>
                   </div>
                    <div class="form-group half">
                     <label class="form-label">头像 URL</label>

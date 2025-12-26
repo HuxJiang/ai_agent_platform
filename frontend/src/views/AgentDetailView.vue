@@ -1,173 +1,211 @@
 <template>
-
-
-
   <div class="agent-detail-container">
+    <!-- 返回按钮 -->
+    <el-button class="back-home-btn" type="primary" @click="goBackHome" :icon="House">
+      返回首页
+    </el-button>
+
     <!-- 头部区域 -->
-    <header class="agent-header">
+    <el-card class="agent-header-card" shadow="never">
       <div class="header-content">
+        <!-- 头像区域 -->
         <div class="avatar-section">
-          <img
+          <el-avatar
+            :size="120"
             :src="agent.avatar || 'https://via.placeholder.com/120'"
             :alt="agent.name"
             class="agent-avatar"
           />
-          <div class="avatar-badge" :class="{ 'online': agent.isTested, 'offline': !agent.isTested }">
+          <el-tag
+            class="avatar-badge"
+            :type="agent.isTested ? 'success' : 'info'"
+            size="small"
+            round
+          >
             {{ agent.isTested ? '已测试' : '未测试' }}
-          </div>
+          </el-tag>
         </div>
+
+        <!-- 标题区域 -->
         <div class="title-section">
           <h1 class="agent-name">{{ agent.name || '未命名智能体' }}</h1>
-          <div class="agent-meta">
-            <span class="category-badge">{{ agent.category || '未分类' }}</span>
-            <span class="favorite-count">❤️ {{ agent.favoriteCount || 0 }} 收藏</span>
-            <span class="connect-type" v-if="agent.connectType">🔗 {{ agent.connectType }}</span>
-          </div>
+
+          <el-space class="agent-meta" :size="16" wrap>
+            <el-tag class="category-badge" type="warning" size="large" round>
+              {{ agent.category || '未分类' }}
+            </el-tag>
+
+            <el-tag class="favorite-count" type="danger" size="large">
+              <template #default>
+                <el-icon><Star /></el-icon>
+                {{ agent.favoriteCount || 0 }} 收藏
+              </template>
+            </el-tag>
+
+            <el-tag v-if="agent.connectType" class="connect-type" type="primary" size="large">
+              <template #default>
+                <el-icon><Connection /></el-icon>
+                {{ agent.connectType }}
+              </template>
+            </el-tag>
+          </el-space>
+
           <p class="agent-description">{{ agent.description || '暂无描述信息。' }}</p>
         </div>
       </div>
-    </header>
+    </el-card>
 
     <!-- 主要内容区域 -->
-    <main class="agent-content">
-      <div class="content-grid">
+    <div class="agent-content">
+      <el-row :gutter="24" class="content-grid">
         <!-- 左侧：基本信息 -->
-        <div class="info-card">
-          <div class="card-header">
-            <h2>📋 基本信息</h2>
-          </div>
-          <div class="card-body">
-            <div class="info-item">
-              <span class="info-label">ID</span>
-              <span class="info-value">{{ agent.id || '未知' }}</span>
-            </div>
-            <div class="info-item">
-              <span class="info-label">名称</span>
-              <span class="info-value">{{ agent.name || '未命名' }}</span>
-            </div>
-            <div class="info-item">
-              <span class="info-label">分类</span>
-              <span class="info-value">{{ agent.category || '未分类' }}</span>
-            </div>
-            <div class="info-item">
-              <span class="info-label">连接类型</span>
-              <span class="info-value">{{ agent.connectType || '未知' }}</span>
-            </div>
-          </div>
-        </div>
+        <el-col :xs="24" :sm="24" :md="8" :lg="8" :xl="8">
+          <el-card class="info-card" shadow="hover">
+            <template #header>
+              <div class="card-header">
+                <el-icon><Document /></el-icon>
+                <span>📋 基本信息</span>
+              </div>
+            </template>
+
+            <el-descriptions :column="1" border size="default">
+              <el-descriptions-item label="ID">
+                {{ agent.id || '未知' }}
+              </el-descriptions-item>
+              <el-descriptions-item label="名称">
+                {{ agent.name || '未命名' }}
+              </el-descriptions-item>
+              <el-descriptions-item label="分类">
+                {{ agent.category || '未分类' }}
+              </el-descriptions-item>
+              <el-descriptions-item label="连接类型">
+                {{ agent.connectType || '未知' }}
+              </el-descriptions-item>
+            </el-descriptions>
+          </el-card>
+        </el-col>
 
         <!-- 中间：配置信息 -->
-        <div class="info-card">
-          <div class="card-header">
-            <h2>⚙️ 配置信息</h2>
-          </div>
-          <div class="card-body">
-            <div class="info-item">
-              <span class="info-label">系统提示</span>
-              <span class="info-value">{{ agent.systemPrompt || '无' }}</span>
-            </div>
-            <div class="info-item">
-              <span class="info-label">模型</span>
-              <span class="info-value">{{ agent.model || '默认' }}</span>
-            </div>
-            <div class="info-item">
-              <span class="info-label">温度</span>
-              <span class="info-value">{{ agent.temperature !== undefined ? agent.temperature : 0.7 }}</span>
-            </div>
-            <div class="info-item">
-              <span class="info-label">最大令牌数</span>
-              <span class="info-value">{{ agent.maxTokens !== undefined ? agent.maxTokens : 4096 }}</span>
-            </div>
-            <div class="info-item">
-              <span class="info-label">公开状态</span>
-              <span class="info-value">
-                <span class="status-badge" :class="{ 'public': agent.isPublic, 'private': !agent.isPublic }">
+        <el-col :xs="24" :sm="24" :md="8" :lg="8" :xl="8">
+          <el-card class="info-card" shadow="hover">
+            <template #header>
+              <div class="card-header">
+                <el-icon><Setting /></el-icon>
+                <span>⚙️ 配置信息</span>
+              </div>
+            </template>
+
+            <el-descriptions :column="1" border size="default">
+              <el-descriptions-item label="系统提示">
+                {{ agent.systemPrompt || '无' }}
+              </el-descriptions-item>
+              <el-descriptions-item label="模型">
+                {{ agent.model || '默认' }}
+              </el-descriptions-item>
+              <el-descriptions-item label="温度">
+                {{ agent.temperature !== undefined ? agent.temperature : 0.7 }}
+              </el-descriptions-item>
+              <el-descriptions-item label="最大令牌数">
+                {{ agent.maxTokens !== undefined ? agent.maxTokens : 4096 }}
+              </el-descriptions-item>
+              <el-descriptions-item label="公开状态">
+                <el-tag :type="agent.isPublic ? 'success' : 'danger'" size="small">
                   {{ agent.isPublic ? '公开' : '私有' }}
-                </span>
-              </span>
-            </div>
-          </div>
-        </div>
+                </el-tag>
+              </el-descriptions-item>
+            </el-descriptions>
+          </el-card>
+        </el-col>
 
         <!-- 右侧：状态信息 -->
-        <div class="info-card">
-          <div class="card-header">
-            <h2>📊 状态信息</h2>
-          </div>
-          <div class="card-body">
-            <div class="info-item">
-              <span class="info-label">测试状态</span>
-              <span class="info-value">
-                <span class="status-badge" :class="{ 'tested': agent.isTested, 'untested': !agent.isTested }">
+        <el-col :xs="24" :sm="24" :md="8" :lg="8" :xl="8">
+          <el-card class="info-card" shadow="hover">
+            <template #header>
+              <div class="card-header">
+                <el-icon><DataAnalysis /></el-icon>
+                <span>📊 状态信息</span>
+              </div>
+            </template>
+
+            <el-descriptions :column="1" border size="default">
+              <el-descriptions-item label="测试状态">
+                <el-tag :type="agent.isTested ? 'success' : 'info'" size="small">
                   {{ agent.isTested ? '已测试' : '未测试' }}
-                </span>
-              </span>
-            </div>
-            <div class="info-item">
-              <span class="info-label">收藏状态</span>
-              <span class="info-value">
-                <span class="status-badge" :class="{ 'favorited': agent.isFavorite, 'not-favorited': !agent.isFavorite }">
+                </el-tag>
+              </el-descriptions-item>
+              <el-descriptions-item label="收藏状态">
+                <el-tag :type="agent.isFavorite ? 'warning' : 'info'" size="small">
                   {{ agent.isFavorite ? '已收藏' : '未收藏' }}
-                </span>
-              </span>
-            </div>
-            <div class="info-item">
-              <span class="info-label">收藏数量</span>
-              <span class="info-value">{{ agent.favoriteCount || 0 }}</span>
-            </div>
-          </div>
-        </div>
+                </el-tag>
+              </el-descriptions-item>
+              <el-descriptions-item label="收藏数量">
+                {{ agent.favoriteCount || 0 }}
+              </el-descriptions-item>
+            </el-descriptions>
+          </el-card>
+        </el-col>
 
         <!-- 底部：时间信息 -->
-        <div class="info-card full-width">
-          <div class="card-header">
-            <h2>⏰ 时间信息</h2>
-          </div>
-          <div class="card-body">
-            <div class="time-grid">
-              <div class="time-item">
-                <span class="time-label">创建时间</span>
-                <span class="time-value">{{ agent.createdAt ? formatDateTime(agent.createdAt) : '未知' }}</span>
+        <el-col :span="24">
+          <el-card class="info-card full-width" shadow="hover">
+            <template #header>
+              <div class="card-header">
+                <el-icon><Clock /></el-icon>
+                <span>⏰ 时间信息</span>
               </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </main>
+            </template>
+
+            <el-descriptions :column="1" border size="default">
+              <el-descriptions-item label="创建时间">
+                {{ agent.createdAt ? formatDateTime(agent.createdAt) : '未知' }}
+              </el-descriptions-item>
+            </el-descriptions>
+          </el-card>
+        </el-col>
+      </el-row>
+    </div>
   </div>
 </template>
 
 <script>
+import { ref, onMounted } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
+import {
+  House,
+  Star,
+  Connection,
+  Document,
+  Setting,
+  DataAnalysis,
+  Clock
+} from '@element-plus/icons-vue'
+
 export default {
   name: 'AgentDetailView',
-  data() {
-    return {
-      agent: {},
-      showRawData: false
-    };
-  },
-  computed: {
-    formattedAgentData() {
-      return JSON.stringify(this.agent, null, 2);
+  setup() {
+    const router = useRouter()
+    const route = useRoute()
+    const agent = ref({})
+    const showRawData = ref(false)
+
+    const goBackHome = () => {
+      router.push('/home')
     }
-  },
-  mounted() {
-    this.loadAgentData();
-  },
-  methods: {
-    loadAgentData() {
-      const agentData = this.$route.query.agent;
+
+    const loadAgentData = () => {
+      const agentData = route.query.agent
       if (agentData) {
         try {
-          this.agent = JSON.parse(agentData);
+          agent.value = JSON.parse(agentData)
         } catch (error) {
-          console.error('解析智能体数据失败:', error);
+          console.error('解析智能体数据失败:', error)
         }
       }
-    },
-    formatDateTime(dateString) {
-      if (!dateString) return '未知';
-      const date = new Date(dateString);
+    }
+
+    const formatDateTime = (dateString) => {
+      if (!dateString) return '未知'
+      const date = new Date(dateString)
       return date.toLocaleString('zh-CN', {
         year: 'numeric',
         month: '2-digit',
@@ -175,35 +213,58 @@ export default {
         hour: '2-digit',
         minute: '2-digit',
         second: '2-digit'
-      });
+      })
+    }
+
+    onMounted(() => {
+      loadAgentData()
+    })
+
+    return {
+      agent,
+      showRawData,
+      goBackHome,
+      formatDateTime,
+      House,
+      Star,
+      Connection,
+      Document,
+      Setting,
+      DataAnalysis,
+      Clock
     }
   }
-};
+}
 </script>
 
 <style scoped>
-
-
 .agent-detail-container {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   background-color: #f9fafb;
   min-height: 100vh;
   color: #111827;
+  padding: 20px;
 }
 
-/* 头部区域样式 */
-.agent-header {
+/* 返回按钮样式 */
+.back-home-btn {
+  margin-bottom: 24px;
+}
+
+/* 头部卡片样式 */
+.agent-header-card {
   background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
   color: white;
-  padding: 40px 20px;
-  border-bottom-left-radius: 24px;
-  border-bottom-right-radius: 24px;
-  box-shadow: 0 4px 20px rgba(79, 70, 229, 0.3);
+  border: none;
+  border-radius: 16px;
+  margin-bottom: 32px;
+}
+
+.agent-header-card :deep(.el-card__body) {
+  padding: 40px;
 }
 
 .header-content {
-  max-width: 1200px;
-  margin: 0 auto;
   display: flex;
   align-items: center;
   gap: 32px;
@@ -215,11 +276,7 @@ export default {
 }
 
 .agent-avatar {
-  width: 120px;
-  height: 120px;
-  border-radius: 50%;
   border: 4px solid rgba(255, 255, 255, 0.3);
-  object-fit: cover;
   background-color: white;
 }
 
@@ -227,21 +284,7 @@ export default {
   position: absolute;
   bottom: 0;
   right: 0;
-  padding: 4px 12px;
-  border-radius: 20px;
-  font-size: 12px;
-  font-weight: 600;
-  border: 2px solid white;
-}
-
-.avatar-badge.online {
-  background-color: #10b981;
-  color: white;
-}
-
-.avatar-badge.offline {
-  background-color: #6b7280;
-  color: white;
+  transform: translate(25%, 25%);
 }
 
 .title-section {
@@ -251,47 +294,20 @@ export default {
 .agent-name {
   font-size: 32px;
   font-weight: 800;
-  margin: 0 0 12px 0;
+  margin: 0 0 16px 0;
   color: white;
 }
 
 .agent-meta {
-  display: flex;
-  align-items: center;
-  gap: 16px;
   margin-bottom: 16px;
-  flex-wrap: wrap;
 }
 
-.category-badge {
-  background: rgba(255, 255, 255, 0.2);
-  padding: 6px 16px;
-  border-radius: 20px;
-  font-size: 14px;
-  font-weight: 600;
-  backdrop-filter: blur(10px);
-}
-
-.favorite-count {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 14px;
-  font-weight: 500;
-  background: rgba(255, 255, 255, 0.15);
-  padding: 6px 12px;
-  border-radius: 20px;
-}
-
+.category-badge,
+.favorite-count,
 .connect-type {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 14px;
-  font-weight: 500;
-  background: rgba(255, 255, 255, 0.15);
-  padding: 6px 12px;
-  border-radius: 20px;
+  backdrop-filter: blur(10px);
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
 }
 
 .agent-description {
@@ -305,189 +321,39 @@ export default {
 /* 主要内容区域样式 */
 .agent-content {
   max-width: 1200px;
-  margin: 40px auto;
-  padding: 0 20px;
+  margin: 0 auto;
 }
 
 .content-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-  gap: 24px;
   margin-bottom: 24px;
 }
 
 .info-card {
-  background: white;
-  border-radius: 16px;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  height: 100%;
+  border-radius: 12px;
   border: 1px solid #e5e7eb;
-  overflow: hidden;
-  transition: transform 0.2s, box-shadow 0.2s;
+  transition: all 0.3s ease;
 }
 
 .info-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
 }
 
 .info-card.full-width {
-  grid-column: 1 / -1;
+  margin-top: 24px;
 }
 
 .card-header {
-  background: #f8fafc;
-  padding: 20px 24px;
-  border-bottom: 1px solid #e5e7eb;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  cursor: pointer;
-}
-
-.card-header h2 {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 700;
-  color: #1f2937;
   display: flex;
   align-items: center;
   gap: 8px;
-}
-
-.toggle-icon {
-  font-size: 14px;
-  color: #6b7280;
-  transition: transform 0.2s;
-}
-
-.card-body {
-  padding: 24px;
-}
-
-/* 信息项样式 */
-.info-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  padding: 12px 0;
-  border-bottom: 1px solid #f3f4f6;
-}
-
-.info-item:last-child {
-  border-bottom: none;
-}
-
-.info-label {
-  font-size: 14px;
   font-weight: 600;
-  color: #4b5563;
-  flex: 0 0 120px;
-}
-
-.info-value {
-  font-size: 14px;
-  color: #111827;
-  flex: 1;
-  text-align: right;
-  word-break: break-word;
-}
-
-.info-link {
-  color: #4f46e5;
-  text-decoration: none;
-  font-weight: 500;
-}
-
-.info-link:hover {
-  text-decoration: underline;
-  color: #4338ca;
-}
-
-/* 状态徽章样式 */
-.status-badge {
-  display: inline-block;
-  padding: 4px 12px;
-  border-radius: 20px;
-  font-size: 12px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.status-badge.public {
-  background-color: #dcfce7;
-  color: #166534;
-}
-
-.status-badge.private {
-  background-color: #fee2e2;
-  color: #991b1b;
-}
-
-.status-badge.tested {
-  background-color: #dbeafe;
-  color: #1e40af;
-}
-
-.status-badge.untested {
-  background-color: #f3f4f6;
-  color: #4b5563;
-}
-
-.status-badge.favorited {
-  background-color: #fef3c7;
-  color: #92400e;
-}
-
-.status-badge.not-favorited {
-  background-color: #f3f4f6;
-  color: #6b7280;
-}
-
-/* 时间信息样式 */
-.time-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 20px;
-}
-
-.time-item {
-  background: #f8fafc;
-  padding: 16px;
-  border-radius: 12px;
-  border: 1px solid #e5e7eb;
-}
-
-.time-label {
-  display: block;
-  font-size: 12px;
-  font-weight: 600;
-  color: #6b7280;
-  margin-bottom: 8px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.time-value {
-  display: block;
   font-size: 16px;
-  font-weight: 600;
-  color: #111827;
 }
 
-/* 原始数据样式 */
-.raw-data {
-  background: #1f2937;
-  color: #e5e7eb;
-  padding: 20px;
-  border-radius: 8px;
-  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-  font-size: 13px;
-  line-height: 1.5;
-  overflow-x: auto;
-  max-height: 400px;
-  overflow-y: auto;
-  margin: 0;
+.card-header .el-icon {
+  font-size: 18px;
 }
 
 /* 响应式设计 */
@@ -502,24 +368,6 @@ export default {
     justify-content: center;
   }
 
-  .content-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .info-item {
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  .info-label {
-    flex: none;
-  }
-
-  .info-value {
-    text-align: left;
-    width: 100%;
-  }
-
   .agent-name {
     font-size: 24px;
   }
@@ -528,24 +376,19 @@ export default {
     width: 100px;
     height: 100px;
   }
+
+  .agent-header-card :deep(.el-card__body) {
+    padding: 24px;
+  }
 }
 
 @media (max-width: 480px) {
-  .agent-header {
-    padding: 30px 16px;
-  }
-
-  .agent-content {
-    padding: 0 16px;
-    margin: 24px auto;
-  }
-
-  .card-body {
+  .agent-detail-container {
     padding: 16px;
   }
 
-  .time-grid {
-    grid-template-columns: 1fr;
+  .agent-header-card :deep(.el-card__body) {
+    padding: 20px;
   }
 }
 </style>
