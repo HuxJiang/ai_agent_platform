@@ -1294,14 +1294,15 @@ export default {
 
 /* 输入框区域优化 */
 .chat-input-area {
-  padding: 20px 28px;
-  background: #ffffff;
-  border-top: 1px solid #e8ebf0;
-  box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.04);
+  padding: 10px 10px;
+  height: 200px;
+  /* border-top: 1px solid #e8ebf0; */
+  /* box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.04); */
   position: sticky;
   bottom: 0;
   z-index: 10;
 }
+
 
 .input-wrapper {
   display: flex;
@@ -1313,6 +1314,9 @@ export default {
   padding: 12px 16px;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  width: 100%;
+  max-width: 900px;
+  margin: 0 auto;
 }
 
 .input-wrapper:hover {
@@ -1331,18 +1335,30 @@ export default {
   background: #f8fafc;
 }
 
+
+
 .message-input {
-  flex: 1;
-  border: none;
-  background: transparent;
+  flex: 1 1 0%;
   font-size: 14.5px;
   color: #2d3748;
   outline: none;
   resize: none;
-  min-height: 26px;
-  max-height: 120px;
+  min-height: 140px;
+  max-height: 240px;
   line-height: 1.5;
   font-family: inherit;
+  box-shadow: none !important;
+}
+
+/* 强制去除 el-input textarea 的边框和背景 */
+.message-input :deep(.el-textarea__inner),
+.message-input >>> .el-textarea__inner {
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  resize: none !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
 }
 
 .message-input::placeholder {
