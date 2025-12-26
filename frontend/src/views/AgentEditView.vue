@@ -253,19 +253,21 @@ export default {
       this.loading = true
       this.errorMessage = ''
       try {
-        // 更新智能体测试状态
-        await api.agent.testAgent(
-          this.agentId,
-          this.user?.id || 1,
-          this.formData.isTested
-        )
-
-        // 更新智能体公开状态
-        await api.agent.publishAgent(
-          this.agentId,
-          this.user?.id || 1,
-          this.formData.isPublic
-        )
+        // 构造请求体
+        const payload = {
+          agentId: this.agentId,
+          userId: this.user.id,
+          name: this.formData.name,
+          description: this.formData.description,
+          avatar: this.formData.avatar,
+          category: this.formData.category,
+          url: this.formData.url,
+          connectType: this.formData.connectType,
+          isTested: this.formData.isTested,
+          isPublic: this.formData.isPublic
+        }
+        // 调用 updateAgent 接口
+        await api.agent.updateAgent(payload)
 
         // 显示成功消息
         this.errorMessage = '智能体配置已更新'
@@ -292,7 +294,7 @@ export default {
       try {
         await api.agent.deleteAgent({
           agentId: this.agentId,
-          userId: this.user?.id || 1
+          userId: this.user.id
         })
 
         // 显示成功消息

@@ -62,39 +62,18 @@ export const agentAPI = {
   },
 
   /**
-   * 标记智能体已测试
+   * 更新智能体
    */
-  async testAgent(agentId, userId, isTested = true) {
+  async updateAgent(queryParams) {
     try {
-      const response = await post('/plugin/agent/test', {
-        agentId,
-        userId,
-        isTested
-      })
+      // 调用del函数，传递endpoint和queryParams
+      const response = await post('/plugin/agent/update', queryParams)
       return response
     } catch (error) {
-      console.error('标记智能体已测试失败:', error)
+      console.error('更新智能体失败:', error)
       throw error
     }
   },
-
-  /**
-   * 发布/下架智能体
-   */
-  async publishAgent(agentId, userId, isPublic = true) {
-    try {
-      const response = await post('/plugin/agent/publish', {
-        agentId,
-        userId,
-        isPublic
-      })
-      return response
-    } catch (error) {
-      console.error('发布/下架智能体失败:', error)
-      throw error
-    }
-  },
-
   /**
    * 收藏智能体
    */

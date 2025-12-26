@@ -475,7 +475,174 @@ module.exports = async function agentRoute(fastify, opts = {}) {
     }
   });
 
+  // 新增 agent update 接口
+  fastify.route({
+    method: 'POST',
+    url: `${basePath}/update`,
+    schema: {
+      tags: swaggerTags,
+      summary: 'Update an agent',
+      body: {
+        type: 'object',
+        required: ['agentId', 'userId'],
+        properties: {
+          agentId: { type: 'integer', minimum: 1 },
+          userId: { type: 'integer', minimum: 1 },
+          name: { type: 'string', minLength: 1, maxLength: 255, nullable: true },
+          description: { type: 'string', nullable: true },
+          avatar: { type: 'string', nullable: true, maxLength: 255 },
+          category: { type: 'string', minLength: 1, maxLength: 64, nullable: true },
+          url: { type: 'string', nullable: true, maxLength: 255 },
+          connectType: { type: 'string', enum: ['stream-http', 'sse'], nullable: true },
+          isTested: { type: 'boolean', nullable: true },
+          isPublic: { type: 'boolean', nullable: true }
+        },
+        additionalProperties: false
+      },
+      response: {
+        200: {
+          allOf: [
+            { $ref: 'ResponseBase#' },
+            {
+              type: 'object',
+              properties: {
+                data: {
+                  type: 'object',
+                  properties: {
+                    agent: {
+                      type: 'object',
+                      properties: {
+                        id: { type: 'integer' },
+                        name: { type: 'string' },
+                        description: { type: ['string', 'null'] },
+                        avatar: { type: ['string', 'null'] },
+                        category: { type: 'string' },
+                        url: { type: ['string', 'null'] },
+                        connectType: { type: 'string' },
+                        isTested: { type: 'boolean' },
+                        isPublic: { type: 'boolean' },
+                        createdAt: { type: ['string', 'null'], format: 'date-time' },
+                        updatedAt: { type: ['string', 'null'], format: 'date-time' }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        },
+        400: { $ref: 'ResponseBase#' },
+        403: { $ref: 'ResponseBase#' },
+        404: { $ref: 'ResponseBase#' },
+        503: { $ref: 'ResponseBase#' }
+      }
+    },
+    handler: async (request, reply) => {
+      if (!ensureMysqlReady(fastify, reply)) {
+        return;
+      }
 
+      const {
+        agentId: rawAgentId,
+        userId: rawUserId,
+        name,
+        description,
+        avatar,
+        category,
+        url,
+        connectType,
+        isTested,
+        isPublic
+      } = request.body || {};
+
+      let agentId, userId;
+      try {
+        agentId = ensurePositiveInteger(rawAgentId, 'agentId');
+        userId = ensurePositiveInteger(rawUserId, 'userId');
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Invalid payload';
+        return reply.sendError(message, 400);
+      }
+
+      // 检查 agent 是否存在且 user 是否为 owner
+      const { agent: existingAgent, isOwner } = await fetchAgentWithOwnership(fastify, agentId, userId);
+      if (!existingAgent) {
+        return reply.sendError('Agent not found', 404);
+      }
+      if (!isOwner) {
+        return reply.sendError('User does not own the agent', 403);
+      }
+
+      // 构造更新字段
+      const fields = [];
+      const values = [];
+      try {
+        if (name !== undefined) {
+          fields.push('name = ?');
+          values.push(requireTrimmedString(name, 'name', 255));
+        }
+        if (description !== undefined) {
+          fields.push('description = ?');
+          values.push(optionalTrimmedString(description, 'description', 65535));
+        }
+        if (avatar !== undefined) {
+          fields.push('avatar = ?');
+          values.push(optionalTrimmedString(avatar, 'avatar', 255));
+        }
+        if (category !== undefined) {
+          fields.push('category = ?');
+          values.push(requireTrimmedString(category, 'category', 64));
+        }
+        if (url !== undefined) {
+          fields.push('url = ?');
+          values.push(optionalTrimmedString(url, 'url', 255));
+        }
+        if (connectType !== undefined) {
+          if (typeof connectType !== 'string') throw new Error('connectType must be a string');
+          const trimmedConnectType = connectType.trim();
+          const lowered = trimmedConnectType.toLowerCase();
+          if (!ALLOWED_CONNECT_TYPES.has(lowered)) throw new Error('connectType must be one of stream-http, sse');
+          fields.push('connect_type = ?');
+          values.push(lowered);
+        }
+        if (isTested !== undefined) {
+          fields.push('is_tested = ?');
+          values.push(parseBooleanFlag(isTested, 'isTested', false) ? 1 : 0);
+        }
+        if (isPublic !== undefined) {
+          fields.push('is_public = ?');
+          values.push(parseBooleanFlag(isPublic, 'isPublic', false) ? 1 : 0);
+        }
+      } catch (validationError) {
+        const message = validationError instanceof Error ? validationError.message : 'Invalid payload';
+        return reply.sendError(message, 400);
+      }
+
+      if (fields.length === 0) {
+        return reply.sendError('No fields to update', 400);
+      }
+
+      fields.push('updated_at = CURRENT_TIMESTAMP');
+      const sql = `UPDATE agent SET ${fields.join(', ')} WHERE id = ?`;
+      values.push(agentId);
+
+      try {
+        const result = await fastify.mysql.query(sql, values);
+        const affectedRows = result && typeof result.affectedRows === 'number' ? result.affectedRows : 0;
+        if (affectedRows === 0) {
+          return reply.sendError('Agent not found', 404);
+        }
+        const agent = await fetchAgent(fastify, agentId);
+        if (!agent) {
+          return reply.sendError('Failed to load updated agent', 500);
+        }
+        return reply.sendSuccess({ agent }, 200, 'Agent updated');
+      } catch (error) {
+        fastify.log.error({ err: error, agentId, userId }, 'Failed to update agent');
+        return reply.sendError('Failed to update agent', 500);
+      }
+    }
+  });
   fastify.route({
     method: 'POST',
     url: `${basePath}/favorite`,
@@ -1045,24 +1212,48 @@ module.exports = async function agentRoute(fastify, opts = {}) {
           }
           // 检查是否有工具调用
           let toolCalls = [];
+          const assistantMsg = {
+            role: 'assistant',
+            content: content || '[empty]'
+          };
           if (toolResult?.metadata && Array.isArray(toolResult.metadata.tool_calls)) {
             toolCalls = toolResult.metadata.tool_calls;
           }
-          if (toolCalls.length === 0) {
-            // 没有工具调用，直接返回，先追加 assistant 消息
-            conversationMessages.push({
-              role: 'assistant',
-              content: content || '[empty]'
-            });
-            finalReply = {
-              role: 'assistant',
-              content: content || '[empty]',
-              tool_calls: undefined
-            };
+
+          let normalizedToolCalls=[];
+          // 每次都将 callTool 返回的 assistant 消息（含 tool_calls）追加到 messages
+          if (toolCalls.length > 0) {
+            // 仿照 message/send 标准化 tool_calls
+            normalizedToolCalls = toolCalls.map((call) => {
+              let name = call.name;
+              let args = call.arguments;
+              // 保证 name/arguments 都为非空字符串，否则丢弃该 tool_call
+              if (!name || !args) return null;
+              return {
+                type: 'function',
+                id: typeof call.id === 'string' && call.id.trim().length > 0 ? call.id.trim() : undefined,
+                function: {
+                  name,
+                  arguments: args
+                }
+              };
+            }).filter(Boolean);
+            fastify.log.info( '[DEBUG] toolCalls 信息标准化完成');
+            if (normalizedToolCalls.length > 0) {
+              assistantMsg.tool_calls = normalizedToolCalls;
+              fastify.log.info( '[DEBUG] toolCalls 添加到 assistantMsg 完成');
+            }
+          }
+          conversationMessages.push(assistantMsg);
+          // 打印每轮后的 conversationMessages
+          fastify.log.info({ conversationMessages }, '[DEBUG] conversationMessages (after assistantMsg)');
+                    // 打印 toolCalls
+          fastify.log.info({ normalizedToolCalls }, '[DEBUG] normalizedToolCalls');
+          if (!toolCalls.length) {
             break;
           }
           // 工具调用，依次处理
-          for (const call of toolCalls) {
+          for (const call of normalizedToolCalls) {
             const toolName = call.function?.name;
             const toolArgs = call.function?.arguments;
             const toolDef = toolMap.get(toolName);
@@ -1095,7 +1286,7 @@ module.exports = async function agentRoute(fastify, opts = {}) {
                 toolResp = '[tool call error]';
               }
             }
-            // 工具回复消息
+            // 工具回复消息，必须紧跟在带 tool_calls 的 assistant 消息后
             conversationMessages.push({
               role: 'tool',
               content: toolResp,
@@ -1103,18 +1294,9 @@ module.exports = async function agentRoute(fastify, opts = {}) {
               to: 'assistant',
               name: toolName
             });
+            // 打印每次 tool 回复后的 conversationMessages
+            fastify.log.info({ conversationMessages }, '[DEBUG] conversationMessages (after tool reply)');
           }
-        }
-        if (!finalReply) {
-          // 若循环未 break，兜底追加 assistant 消息
-          conversationMessages.push({
-            role: 'assistant',
-            content: '[no reply]'
-          });
-          finalReply = {
-            role: 'assistant',
-            content: '[no reply]'
-          };
         }
         await client.disconnect();
         // 只返回最新一条消息
