@@ -9,7 +9,7 @@
         <div class="logo-circle">WF</div>
         <h3>工作流设计器</h3>
       </div>
-      
+
       <!-- 中间按钮区域：美化后的下拉菜单 -->
       <div class="toolbar-center">
         <el-dropdown class="custom-dropdown" @command="handleAddAgentNode" trigger="click">
@@ -19,15 +19,15 @@
             <span class="trigger-text">添加智能体节点</span>
             <el-icon class="trigger-arrow"><arrow-down /></el-icon>
           </div>
-          
+
           <template #dropdown>
             <el-dropdown-menu class="custom-dropdown-menu">
               <!-- 增加一个简单的标题头，提升体验 -->
               <div class="dropdown-header">可选智能体列表</div>
-              
-              <el-dropdown-item 
-                v-for="agent in agents" 
-                :key="agent.id" 
+
+              <el-dropdown-item
+                v-for="agent in agents"
+                :key="agent.id"
                 :command="agent"
                 class="styled-dropdown-item"
               >
@@ -38,7 +38,7 @@
                   <span class="add-icon-hint">+</span>
                 </div>
               </el-dropdown-item>
-              
+
               <!-- 空状态处理 -->
               <div v-if="agents.length === 0" class="empty-dropdown">
                 暂无可用智能体
@@ -46,11 +46,40 @@
             </el-dropdown-menu>
           </template>
         </el-dropdown>
+          <!-- 控制节点下拉菜单 -->
+          <el-dropdown class="custom-dropdown" @command="handleAddControlNode" trigger="click" style="margin-left: 16px;">
+            <div class="fancy-trigger-btn">
+              <div class="icon-box">🕹️</div>
+              <span class="trigger-text">添加控制节点</span>
+              <el-icon class="trigger-arrow"><arrow-down /></el-icon>
+            </div>
+            <template #dropdown>
+              <el-dropdown-menu class="custom-dropdown-menu">
+                <div class="dropdown-header">可选控制节点</div>
+                <el-dropdown-item
+                  v-for="control in controlNodes"
+                  :key="control.type"
+                  :command="control"
+                  class="styled-dropdown-item"
+                >
+                  <div class="dropdown-item-content">
+                    <div class="agent-info-simple">
+                      <span class="agent-name-small">{{ control.label }}</span>
+                    </div>
+                    <span class="add-icon-hint">+</span>
+                  </div>
+                </el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
       </div>
 
       <div class="toolbar-right">
         <el-button type="success" class="save-btn" @click="handleSave" :loading="saving">
           💾 保存画布
+        </el-button>
+        <el-button type="primary" class="run-btn" @click="handleRun">
+          ▶️ 运行
         </el-button>
       </div>
     </header>
@@ -73,18 +102,18 @@
 
         <template #node-custom="{ id, data, selected }">
           <div class="custom-node-shell" :class="[data.type, { selected }]">
-            <div 
-              v-if="selected" 
-              class="delete-handle" 
+            <div
+              v-if="selected"
+              class="delete-handle"
               @click.stop="removeNode(id)"
               title="删除节点"
             >×</div>
             <Handle type="target" position="left" class="port-handle" />
             <div class="node-content">
               <template v-if="data.type === 'agent'">
-                <img 
-                  :src="data.avatar || 'https://via.placeholder.com/100'" 
-                  :alt="data.label" 
+                <img
+                  :src="data.avatar || 'https://via.placeholder.com/100'"
+                  :alt="data.label"
                   class="agent-avatar"
                 />
               </template>
@@ -106,9 +135,9 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 
 // --- 1. 核心库引入 ---
-import { 
-  VueFlow, 
-  useVueFlow, 
+import {
+  VueFlow,
+  useVueFlow,
   Handle,
 } from '@vue-flow/core'
 
@@ -131,21 +160,27 @@ import api from '../utils/api.js'
 
 // --- 状态定义 ---
 const router = useRouter()
-const { 
-  addEdges, 
-  addNodes, 
-  removeNodes, 
-  findNode, 
-  toObject, 
-  project, 
-  viewport 
+const {
+  addEdges,
+  addNodes,
+  removeNodes,
+  findNode,
+  toObject,
+  project,
+  viewport
 } = useVueFlow()
 
-const elements = ref([]) 
+const elements = ref([])
 const saving = ref(false)
 const flowInstance = ref(null)
 const agents = ref([])
 const user = ref(null)
+
+// 控制节点类型列表
+const controlNodes = ref([
+  { type: 'start', label: '开始', icon: '🚀' },
+  { type: 'end', label: '结束', icon: '🏁' },
+])
 
 // --- 生命周期 ---
 onMounted(() => {
@@ -182,7 +217,7 @@ const loadData = async () => {
       elements.value = []
     }
   } catch (error) {
-    ElMessage.error('加载工作流失败')
+    // ElMessage.error('加载工作流失败')
   }
 }
 
@@ -193,7 +228,12 @@ const handleSave = async () => {
     await saveWorkflowData(flowData)
     ElMessage.success('保存成功')
   } catch (error) {
-    ElMessage.error('保存失败')
+    // 显示详细错误信息
+    let msg = '保存失败';
+    if (error && (error.message || typeof error === 'string')) {
+      msg += `: ${error.message || error}`;
+    }
+    // ElMessage.error(msg)
   } finally {
     saving.value = false
   }
@@ -212,19 +252,43 @@ const handleAddAgentNode = (agent) => {
 
   const newNode = {
     id,
-    type: 'custom', 
-    position: { 
-      x: projected.x + Math.random() * 50 - 25, 
-      y: projected.y + Math.random() * 50 - 25 
+    type: 'custom',
+    position: {
+      x: projected.x + Math.random() * 50 - 25,
+      y: projected.y + Math.random() * 50 - 25
     },
-    data: { 
-      label: agent.name, 
+    data: {
+      label: agent.name,
       type: 'agent',
       agentId: agent.id,
       avatar: agent.avatar
     },
   }
-  
+
+  addNodes([newNode])
+}
+
+// 控制节点添加逻辑
+const handleAddControlNode = (control) => {
+  const id = `node_${Date.now()}_${control.type}`
+  const { x, y, zoom } = viewport.value || { x: 0, y: 0, zoom: 1 }
+  const centerX = window.innerWidth / 2
+  const centerY = window.innerHeight / 2
+  const projected = project({ x: centerX, y: centerY })
+
+  const newNode = {
+    id,
+    type: 'custom',
+    position: {
+      x: projected.x + Math.random() * 50 - 25,
+      y: projected.y + Math.random() * 50 - 25
+    },
+    data: {
+      label: control.label,
+      type: control.type,
+      icon: control.icon
+    },
+  }
   addNodes([newNode])
 }
 
@@ -236,25 +300,54 @@ const onConnect = (params) => {
   addEdges([{
     ...params,
     id: `e_${params.source}-${params.target}`,
-    type: 'smoothstep', 
-    animated: true,     
+    type: 'smoothstep',
+    animated: true,
     style: { stroke: '#555' }
   }])
 }
 
 const onNodeDoubleClick = async (event) => {
   const { node } = event
-  try {
-    const { value } = await ElMessageBox.prompt('请输入新的节点名称', '编辑节点', {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
-      inputValue: node.data.label,
-    })
-    const targetNode = findNode(node.id)
-    if (targetNode) {
-      targetNode.data.label = value
-    }
-  } catch (e) { }    
+  if (node.data.type === 'agent') {
+    // 智能体节点双击弹窗，输入节点需要的信息，并显示输出信息
+    try {
+      let message = '<div style="margin-bottom:8px;">请输入该智能体节点的参数信息</div>';
+      message += `<div style=\"color:#409eff;\">当前输出信息：</div>`;
+      if (node.data.output) {
+        message += `<pre style=\"background:#f5f7fa;padding:8px;border-radius:4px;max-width:400px;white-space:pre-wrap;word-break:break-all;\">${node.data.output}</pre>`;
+      } else {
+        message += `<div style=\"color:#909399;padding:8px;\">暂无输出信息</div>`;
+      }
+      const { value } = await ElMessageBox.prompt(
+        message,
+        '编辑智能体节点',
+        {
+          confirmButtonText: '确定',
+          cancelButtonText: '取消',
+          inputValue: node.data.info || '',
+          inputPlaceholder: '请输入节点所需信息',
+          dangerouslyUseHTMLString: true,
+        }
+      )
+      const targetNode = findNode(node.id)
+      if (targetNode) {
+        targetNode.data.info = value
+      }
+    } catch (e) {}
+  } else {
+    // 控制节点逻辑保持原样
+    try {
+      const { value } = await ElMessageBox.prompt('请输入新的节点名称', '编辑节点', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        inputValue: node.data.label,
+      })
+      const targetNode = findNode(node.id)
+      if (targetNode) {
+        targetNode.data.label = value
+      }
+    } catch (e) { }
+  }
 }
 
 const onPaneReady = (instance) => {
@@ -270,6 +363,79 @@ const getNodeIcon = (type) => {
     default: return '📄'
   }
 }
+
+// 消息历史数组，存储所有交互消息
+const messages = ref([])
+
+const handleRun = () => {
+  const visited = new Set();
+
+  const traverse = async (nodeId) => {
+    if (visited.has(nodeId)) return;
+    visited.add(nodeId);
+
+    const node = elements.value.find(el => el.id === nodeId && el.type !== 'edge');
+    if (node) {
+      console.log('Processing node detail:', JSON.parse(JSON.stringify(node)));
+      // 如果是 agent 节点，发起 agent_call 请求
+      if (node.data.type === 'agent' && node.data.agentId && user.value && user.value.id) {
+        try {
+          // 1. 先将当前 messages 写入本地 messages 数组
+          const userMsg = {
+            role: 'user',
+            content: node.data.info || ''
+          };
+          messages.value.push(userMsg);
+          // 2. 发送整个 messages 数组
+          const params = {
+            userId: user.value.id,
+            agentId: node.data.agentId,
+            messages: messages.value.slice() // 发送当前所有消息历史
+          };
+          // api.agent.callAgent 是异步方法
+          const result = await api.agent.callAgent(params);
+          // 打印调用结果
+          console.log('Agent call result:', JSON.parse(JSON.stringify(result)));
+          // 处理返回格式
+            if (Array.isArray(result.messages)) {
+            // 1. 只取 assistant 的最新 content 写入节点 output，防止整个 messages 被赋值
+            let outputContent = '';
+              if (result.messages.length === 1 && result.messages[0].role === 'assistant') {
+                outputContent = result.messages[0].content;
+              } else {
+                const assistantMsgs = result.messages.filter(m => m.role === 'assistant');
+                if (assistantMsgs.length > 0) {
+                  outputContent = assistantMsgs[assistantMsgs.length - 1].content;
+                }
+              }
+            node.data.output = outputContent;
+            // 2. 将所有 messages 追加到本地 messages 数组
+            messages.value.push(...result.messages);
+            // 打印 messages 数组
+            console.log('messages:', JSON.parse(JSON.stringify(messages.value)));
+          } else {
+            node.data.output = JSON.stringify(result);
+          }
+        } catch (err) {
+          node.data.output = 'Agent 调用失败: ' + (err && err.message ? err.message : String(err));
+        }
+      }
+      const outgoingEdges = elements.value.filter(el => el.source === nodeId);
+      // 顺序串行遍历
+      for (const edge of outgoingEdges) {
+        await traverse(edge.target);
+      }
+    }
+  };
+
+  const startNodes = elements.value.filter(el => el.type !== 'edge' && el.data.type === 'start');
+  // 串行执行每个入口
+  (async () => {
+    for (const node of startNodes) {
+      await traverse(node.id);
+    }
+  })();
+};
 </script>
 
 <style scoped>
@@ -491,6 +657,13 @@ const getNodeIcon = (type) => {
   box-shadow: 0 2px 6px rgba(103, 194, 58, 0.2);
 }
 
+.run-btn {
+  padding: 8px 20px;
+  font-weight: 600;
+  border-radius: 6px;
+  box-shadow: 0 2px 6px rgba(64, 158, 255, 0.2);
+}
+
 .canvas-wrapper {
   flex: 1;
   position: relative;
@@ -507,7 +680,7 @@ const getNodeIcon = (type) => {
   box-shadow: 0 4px 10px rgba(0,0,0,0.08); /* 阴影加深 */
   min-width: 140px;
   text-align: center;
-  position: relative; 
+  position: relative;
   transition: all 0.3s ease;
   cursor: grab;
 }
@@ -542,8 +715,8 @@ const getNodeIcon = (type) => {
   border: 2px solid #e4e7ed;
 }
 
-.custom-node-shell.agent { 
-  border-left: 5px solid #909399; 
+.custom-node-shell.agent {
+  border-left: 5px solid #909399;
 }
 
 .node-label {

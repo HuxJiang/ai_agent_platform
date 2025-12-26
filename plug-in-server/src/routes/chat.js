@@ -695,15 +695,15 @@ module.exports = async function messageRoute(fastify, opts = {}) {
           throw new RouteError(400, 'Conversation does not have a main agent configured');
         }
         //获取主会话模型与参数配置
-        const agentRow = await fetchAgent(fastify, mainAgentId);
-        const agentUrl = typeof agentRow.url === 'string' ? agentRow.url.trim() : '';
+        const mainchatROw = await fetchAgent(fastify, mainAgentId);
+        const mainchatUrl = typeof mainchatROw.url === 'string' ? mainchatROw.url.trim() : '';
 
-        if (agentUrl.length === 0) {
+        if (mainchatUrl.length === 0) {
           throw new RouteError(400, 'Main agent is missing an MCP server url');
         }
         //根据会话加载可使用工具的链接
         const linkedAgentServers = await fetchLinkedAgents(fastify, normalizedConversationId, mainAgentId);
-        const serverInput = { url: agentUrl };
+        const serverInput = { url: mainchatUrl };
 
         let resolvedServerConfig;
 

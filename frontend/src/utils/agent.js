@@ -126,6 +126,19 @@ export const agentAPI = {
       console.error('取消收藏智能体失败:', error)
       throw error
     }
-  }
+  },
+
+  /**
+   * 调用智能体
+   */
+  async callAgent(queryParams) {
+    try {
+      const response = await post('/plugin/agent/call', queryParams)
+      return response
+    } catch (error) {
+      console.error('调用智能体失败:', error)
+      throw error
+    }
+  },
 
 }

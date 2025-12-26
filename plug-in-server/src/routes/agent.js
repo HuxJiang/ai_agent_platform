@@ -840,4 +840,295 @@ module.exports = async function agentRoute(fastify, opts = {}) {
       }
     }
   });
+  // 新增 callagent 端口
+  fastify.route({
+    method: 'POST',
+    url: `${basePath}/call`,
+    schema: {
+      tags: swaggerTags,
+      summary: 'Call an agent',
+      body: {
+        type: 'object',
+        required: ['agentId', 'userId', 'messages'],
+        properties: {
+          agentId: { type: 'integer', minimum: 1 },
+          userId: { type: 'integer', minimum: 1 },
+          messages: {
+            type: 'array',
+            minItems: 1,
+            maxItems: 100,
+            items: {
+              type: 'object',
+              required: ['role', 'content'],
+              properties: {
+                role: { type: 'string', minLength: 1, maxLength: 32 },
+                content: { type: 'string', minLength: 1, maxLength: 65535 }
+              },
+              additionalProperties: false
+            }
+          }
+        },
+        additionalProperties: false
+      },
+      response: {
+        200: {
+          allOf: [
+            { $ref: 'ResponseBase#' },
+            {
+              type: 'object',
+              properties: {
+                data: {
+                  type: 'object',
+                  properties: {
+                    messages: {
+                      type: 'array',
+                      items: {
+                        type: 'object',
+                        properties: {
+                          role: { type: 'string' },
+                          content: { type: 'string' },
+                          name: { type: 'string' },
+                          tool_call_id: { type: 'string' },
+                          to: { type: 'string' },
+                          tool_calls: { type: 'array' }
+                        },
+                        additionalProperties: true
+                      }
+                    }
+                  },
+                  required: ['messages']
+                }
+              }
+            }
+          ]
+        },
+        400: { $ref: 'ResponseBase#' },
+        403: { $ref: 'ResponseBase#' },
+        404: { $ref: 'ResponseBase#' },
+        502: { $ref: 'ResponseBase#' },
+        503: { $ref: 'ResponseBase#' }
+      }
+    },
+    handler: async (request, reply) => {
+      // 1. 校验参数
+      if (!ensureMysqlReady(fastify, reply)) {
+        return;
+      }
+      const { agentId: rawAgentId, userId: rawUserId, messages } = request.body || {};
+      let agentId, userId, normalizedMessages;
+      try {
+        agentId = ensurePositiveInteger(rawAgentId, 'agentId');
+        userId = ensurePositiveInteger(rawUserId, 'userId');
+        if (!Array.isArray(messages) || messages.length === 0) {
+          throw new Error('messages must be a non-empty array');
+        }
+        normalizedMessages = messages.map((msg, idx) => {
+          if (
+            typeof msg !== 'object' ||
+            typeof msg.role !== 'string' || !msg.role.trim() || msg.role.length > 32 ||
+            typeof msg.content !== 'string' || !msg.content.trim() || msg.content.length > 65535
+          ) {
+            throw new Error(`Invalid message at index ${idx}`);
+          }
+          return {
+            role: msg.role.trim(),
+            content: msg.content.trim()
+          };
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Invalid payload';
+        return reply.sendError(message, 400);
+      }
+
+      // 2. 校验用户与 agent 是否有关联（只要存在表项即可）
+      const relationRows = await fastify.mysql.query(
+        'SELECT 1 FROM user_agent WHERE user_id = ? AND agent_id = ? LIMIT 1',
+        [userId, agentId]
+      );
+      if (!Array.isArray(relationRows) || relationRows.length === 0) {
+        return reply.sendError('User does not own or favorite the agent', 403);
+      }
+
+      // 3. 获取 agent 详细信息
+      const agentRow = await fastify.mysql.query(
+        'SELECT id, url FROM agent WHERE id = ? LIMIT 1',
+        [agentId]
+      );
+      if (!Array.isArray(agentRow) || agentRow.length === 0) {
+        return reply.sendError('Agent not found', 404);
+      }
+      const agent = agentRow[0];
+
+      // 4. 连接 mainagent（url 固定）
+      const mainAgentUrl = 'http://localhost:3100/mcp';
+      let McpClient;
+      try {
+        McpClient = require('../mcp/client').McpClient;
+      } catch (e) {
+        return reply.sendError('McpClient not found', 500);
+      }
+      const client = new McpClient({ url: mainAgentUrl });
+      let toolDefinitions = [];
+      let toolMap = new Map();
+      let agentTools = [];
+      // 5. 获取 agent 可用工具
+      try {
+        await client.connect();
+        // agent.url 作为子 agent，获取工具
+        if (agent.url) {
+          const subClient = new McpClient({ url: agent.url });
+          try {
+            await subClient.connect();
+            const toolsResult = await subClient.listTools();
+            // 打印 agent 工具返回
+            fastify.log.info({ agentToolsResult: toolsResult }, '[DEBUG] agent.listTools 返回');
+            if (toolsResult && Array.isArray(toolsResult.tools)) {
+              agentTools = toolsResult.tools;
+            }
+          } catch (e) {
+            fastify.log.error({ err: e }, '[DEBUG] agent.listTools 异常');
+          } finally {
+            try { await subClient.disconnect(); } catch (_) {}
+          }
+        }
+        // 构造 tools 供主 agent 调用
+        toolDefinitions = Array.isArray(agentTools)
+          ? agentTools.map((tool) => {
+              const name = typeof tool.name === 'string' ? tool.name.trim() : '';
+              return {
+                type: 'function',
+                function: {
+                  name: name,
+                  description: tool.description || '',
+                  parameters: tool.inputSchema || tool.input_schema || { type: 'object', properties: {}, additionalProperties: true }
+                }
+              };
+            })
+          : [];
+        toolMap = new Map();
+        for (const tool of agentTools) {
+          if (tool && tool.name) {
+            toolMap.set(tool.name, tool);
+          }
+        }
+      } catch (e) {
+        fastify.log.error({ err: e }, '[DEBUG] mainagent/agent工具获取异常');
+        try { await client.disconnect(); } catch (_) {}
+        return reply.sendError('Failed to connect to main agent', 502);
+      }
+
+      // 6. 工具调用主循环
+      const MAX_TOOL_ITER = 6;
+      let conversationMessages = [...normalizedMessages];
+      let finalReply = null;
+      try {
+        for (let i = 0; i < MAX_TOOL_ITER; i++) {
+          const callArguments = {
+            messages: conversationMessages,
+            tools: toolDefinitions,
+            toolChoice: toolDefinitions.length > 0 ? 'auto' : undefined
+          };
+          // 打印 mainagent 调用参数
+          fastify.log.info({ callArguments }, '[DEBUG] mainagent.callTool 入参');
+          const toolResult = await client.callTool({ name: 'chat', arguments: callArguments });
+          // 打印 mainagent 返回
+          fastify.log.info({ toolResult }, '[DEBUG] mainagent.callTool 返回');
+          // 解析回复
+          let content = '';
+          if (Array.isArray(toolResult?.content)) {
+            content = toolResult.content
+              .filter((part) => part && part.type === 'text' && typeof part.text === 'string')
+              .map((part) => part.text)
+              .join('');
+          } else if (typeof toolResult?.content === 'string') {
+            content = toolResult.content;
+          }
+          // 检查是否有工具调用
+          let toolCalls = [];
+          if (toolResult?.metadata && Array.isArray(toolResult.metadata.tool_calls)) {
+            toolCalls = toolResult.metadata.tool_calls;
+          }
+          if (toolCalls.length === 0) {
+            // 没有工具调用，直接返回，先追加 assistant 消息
+            conversationMessages.push({
+              role: 'assistant',
+              content: content || '[empty]'
+            });
+            finalReply = {
+              role: 'assistant',
+              content: content || '[empty]',
+              tool_calls: undefined
+            };
+            break;
+          }
+          // 工具调用，依次处理
+          for (const call of toolCalls) {
+            const toolName = call.function?.name;
+            const toolArgs = call.function?.arguments;
+            const toolDef = toolMap.get(toolName);
+            let toolResp = '[tool call failed]';
+            if (toolDef && typeof toolDef.call === 'function') {
+              try {
+                // 这里假设工具有 call 方法，实际应根据 agent.url 远程调用
+                toolResp = await toolDef.call(toolArgs);
+              } catch (e) {
+                toolResp = '[tool call error]';
+              }
+            } else if (agent.url) {
+              // 远程调用子 agent 工具
+              try {
+                const subClient = new McpClient({ url: agent.url });
+                await subClient.connect();
+                // 打印 agent 工具调用参数
+                fastify.log.info({ toolName, toolArgs }, '[DEBUG] agent.callTool 入参');
+                toolResp = await subClient.callTool({ name: toolName, arguments: JSON.parse(toolArgs) });
+                // 打印 agent 工具调用返回
+                fastify.log.info({ toolResp }, '[DEBUG] agent.callTool 返回');
+                await subClient.disconnect();
+                if (toolResp && typeof toolResp === 'object' && toolResp.content) {
+                  toolResp = typeof toolResp.content === 'string' ? toolResp.content : JSON.stringify(toolResp.content);
+                } else {
+                  toolResp = JSON.stringify(toolResp);
+                }
+              } catch (e) {
+                fastify.log.error({ err: e }, '[DEBUG] agent.callTool 异常');
+                toolResp = '[tool call error]';
+              }
+            }
+            // 工具回复消息
+            conversationMessages.push({
+              role: 'tool',
+              content: toolResp,
+              tool_call_id: call.id || undefined,
+              to: 'assistant',
+              name: toolName
+            });
+          }
+        }
+        if (!finalReply) {
+          // 若循环未 break，兜底追加 assistant 消息
+          conversationMessages.push({
+            role: 'assistant',
+            content: '[no reply]'
+          });
+          finalReply = {
+            role: 'assistant',
+            content: '[no reply]'
+          };
+        }
+        await client.disconnect();
+        // 只返回最新一条消息
+        const latestMessage = conversationMessages.length > 0 ? conversationMessages[conversationMessages.length - 1] : null;
+        return reply.sendSuccess(
+          { messages: latestMessage ? [latestMessage] : [] },
+          200,
+          'Agent called successfully'
+        );
+      } catch (e) {
+        fastify.log.error({ err: e }, '[DEBUG] mainagent/agent调用主循环异常');
+        try { await client.disconnect(); } catch (_) {}
+        return reply.sendError('Failed to call agent', 502);
+      }
+    }
+  });
 };
